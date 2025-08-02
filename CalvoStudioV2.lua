@@ -1,8 +1,7 @@
 --[[
-    Script: Calvo Studio (V3)
+    Script: Calvo Studio (V4)
     Autor: Recriado e aprimorado com base na solicitação
-    Descrição: GUI com tela de carregamento, menu principal com páginas,
-               botão de minimizar e um painel de opções de modificação (mods).
+    Descrição: GUI com sliders de velocidade, seleção de jogadores e funções de Kill/Kick.
 ]]
 
 --==================================================================================--
@@ -26,371 +25,257 @@ local humanoid = character:WaitForChild("Humanoid")
 local isFlying = false
 local isNoclipping = false
 local originalWalkSpeed = humanoid.WalkSpeed
-local flySpeed = 1
+local customWalkSpeed = 75
+local flySpeed = 50
 
 --==================================================================================--
 --||                                TELA DE CARREGAMENTO                            ||--
 --==================================================================================--
 
--- Gui principal da tela de carregamento
-local loadingScreenGui = Instance.new("ScreenGui")
+-- (O código da tela de carregamento permanece o mesmo da V3, foi omitido aqui para economizar espaço, mas está no código final)
+local loadingScreenGui = Instance.new("ScreenGui", playerGui)
 loadingScreenGui.Name = "LoadingScreenGUI"
-loadingScreenGui.Parent = playerGui
 loadingScreenGui.ResetOnSpawn = false
-loadingScreenGui.DisplayOrder = 1000 -- Garante que fique por cima de tudo
-
--- --- ALTERAÇÃO: Usando CanvasGroup para um fade out perfeito ---
--- O CanvasGroup age como um Frame, mas permite animar a transparência de todos os filhos de uma vez.
-local loadingBackground = Instance.new("CanvasGroup") 
+loadingScreenGui.DisplayOrder = 1000
+local loadingBackground = Instance.new("CanvasGroup", loadingScreenGui)
 loadingBackground.Name = "Background"
-loadingBackground.Parent = loadingScreenGui
 loadingBackground.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-loadingBackground.BorderSizePixel = 0
 loadingBackground.Size = UDim2.new(1, 0, 1, 0)
+local loadingTitle = Instance.new("TextLabel", loadingBackground)
+loadingTitle.Font = Enum.Font.GothamSemibold; loadingTitle.Text = "Calvo Studio"; loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255); loadingTitle.TextSize = 52; loadingTitle.BackgroundTransparency = 1; loadingTitle.Size = UDim2.new(1, 0, 0.2, 0); loadingTitle.Position = UDim2.new(0.5, 0, 0.35, 0); loadingTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+local progressBarBackground = Instance.new("Frame", loadingBackground)
+progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50); progressBarBackground.Size = UDim2.new(0.5, 0, 0, 20); progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0); progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5); Instance.new("UICorner", progressBarBackground).CornerRadius = UDim.new(1, 0)
+local progressBarFill = Instance.new("Frame", progressBarBackground)
+progressBarFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218); progressBarFill.Size = UDim2.new(0, 0, 1, 0); Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
+local loadingText = Instance.new("TextLabel", loadingBackground)
+loadingText.Font = Enum.Font.Gotham; loadingText.Text = "Carregando..."; loadingText.TextColor3 = Color3.fromRGB(180, 180, 180); loadingText.TextSize = 18; loadingText.BackgroundTransparency = 1; loadingText.Size = UDim2.new(1, 0, 0, 30); loadingText.Position = UDim2.new(0.5, 0, 0.5, 30); loadingText.AnchorPoint = Vector2.new(0.5, 0.5)
 
--- Título
-local loadingTitle = Instance.new("TextLabel")
-loadingTitle.Name = "Title"
-loadingTitle.Parent = loadingBackground
-loadingTitle.Font = Enum.Font.GothamSemibold
-loadingTitle.Text = "Calvo Studio"
-loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-loadingTitle.TextSize = 52
-loadingTitle.BackgroundTransparency = 1
-loadingTitle.Size = UDim2.new(1, 0, 0.2, 0)
-loadingTitle.Position = UDim2.new(0.5, 0, 0.35, 0)
-loadingTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-
--- Barra de progresso (fundo)
-local progressBarBackground = Instance.new("Frame")
-progressBarBackground.Name = "ProgressBarBackground"
-progressBarBackground.Parent = loadingBackground
-progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-progressBarBackground.BorderSizePixel = 0
-progressBarBackground.Size = UDim2.new(0.5, 0, 0, 20)
-progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0)
-progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5)
-local progressBarCorner = Instance.new("UICorner", progressBarBackground)
-progressBarCorner.CornerRadius = UDim.new(1, 0)
-
--- Barra de progresso (preenchimento)
-local progressBarFill = Instance.new("Frame")
-progressBarFill.Name = "ProgressBarFill"
-progressBarFill.Parent = progressBarBackground
-progressBarFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218) -- Cor do Discord
-progressBarFill.BorderSizePixel = 0
-progressBarFill.Size = UDim2.new(0, 0, 1, 0)
-local progressBarFillCorner = Instance.new("UICorner", progressBarFill)
-progressBarFillCorner.CornerRadius = UDim.new(1, 0)
-
--- Texto de status
-local loadingText = Instance.new("TextLabel")
-loadingText.Name = "LoadingText"
-loadingText.Parent = loadingBackground
-loadingText.Font = Enum.Font.Gotham
-loadingText.Text = "Carregando assets..."
-loadingText.TextColor3 = Color3.fromRGB(180, 180, 180)
-loadingText.TextSize = 18
-loadingText.BackgroundTransparency = 1
-loadingText.Size = UDim2.new(1, 0, 0, 30)
-loadingText.Position = UDim2.new(0.5, 0, 0.5, 30)
-loadingText.AnchorPoint = Vector2.new(0.5, 0.5)
 
 --==================================================================================--
 --||                                   MENU PRINCIPAL                               ||--
 --==================================================================================--
 
--- Gui principal
-local mainGui = Instance.new("ScreenGui")
+local mainGui = Instance.new("ScreenGui", playerGui)
 mainGui.Name = "CalvoStudioGUI"
-mainGui.Parent = playerGui
 mainGui.ResetOnSpawn = false
-mainGui.Enabled = false -- Começa desativado
+mainGui.Enabled = false
 
--- Frame principal (a janela)
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Parent = mainGui
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-mainFrame.BorderColor3 = Color3.fromRGB(20, 20, 25)
-mainFrame.BorderSizePixel = 2
-mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.Size = UDim2.new(0, 320, 0, 350)
-mainFrame.Draggable = true
-mainFrame.Active = true
-mainFrame.ClipsDescendants = true
-local mainFrameCorner = Instance.new("UICorner", mainFrame)
-mainFrameCorner.CornerRadius = UDim.new(0, 12)
+local mainFrame = Instance.new("Frame", mainGui)
+mainFrame.Name = "MainFrame"; mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45); mainFrame.BorderColor3 = Color3.fromRGB(20, 20, 25); mainFrame.BorderSizePixel = 2; mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); mainFrame.AnchorPoint = Vector2.new(0.5, 0.5); mainFrame.Size = UDim2.new(0, 400, 0, 420); mainFrame.Draggable = true; mainFrame.Active = true; mainFrame.ClipsDescendants = true; Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 
--- Barra de título
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Parent = mainFrame
-titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BorderSizePixel = 0
+local titleBar = Instance.new("Frame", mainFrame)
+titleBar.Name = "TitleBar"; titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55); titleBar.Size = UDim2.new(1, 0, 0, 40); titleBar.BorderSizePixel = 0
+local titleLabel = Instance.new("TextLabel", titleBar)
+titleLabel.Font = Enum.Font.GothamBold; titleLabel.Text = "Calvo Studio"; titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255); titleLabel.TextSize = 18; titleLabel.BackgroundTransparency = 1; titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0); titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "TitleLabel"
-titleLabel.Parent = titleBar
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Text = "Calvo Studio"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 18
-titleLabel.BackgroundTransparency = 1
-titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
-titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+local contentContainer = Instance.new("Frame", mainFrame)
+contentContainer.Name = "ContentContainer"; contentContainer.BackgroundTransparency = 1; contentContainer.Size = UDim2.new(1, 0, 1, -40); contentContainer.Position = UDim2.new(0, 0, 0, 40); contentContainer.ClipsDescendants = true
 
--- Botão de minimizar
-local minimizeButton = Instance.new("TextButton")
-minimizeButton.Name = "MinimizeButton"
-minimizeButton.Parent = titleBar
-minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 89, 89)
-minimizeButton.Size = UDim2.new(0, 15, 0, 15)
-minimizeButton.Position = UDim2.new(0, 25, 0.5, 0) -- Pequeno ajuste de posição
-minimizeButton.AnchorPoint = Vector2.new(0.5, 0.5)
-minimizeButton.Font = Enum.Font.SourceSansBold
-minimizeButton.Text = ""
-minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-minimizeButton.TextSize = 14
-local minBtnCorner = Instance.new("UICorner", minimizeButton)
-minBtnCorner.CornerRadius = UDim.new(1, 0)
+-- Páginas
+local mainPage = Instance.new("Frame", contentContainer)
+mainPage.Name = "MainPage"; mainPage.BackgroundTransparency = 1; mainPage.Size = UDim2.new(1, 0, 1, 0)
+local localModsPage = Instance.new("Frame", contentContainer)
+localModsPage.Name = "LocalModsPage"; localModsPage.BackgroundTransparency = 1; localModsPage.Size = UDim2.new(1, 0, 1, 0); localModsPage.Visible = false
+local playerModsPage = Instance.new("Frame", contentContainer)
+playerModsPage.Name = "PlayerModsPage"; playerModsPage.BackgroundTransparency = 1; playerModsPage.Size = UDim2.new(1, 0, 1, 0); playerModsPage.Visible = false
 
--- Container para o conteúdo (para facilitar minimizar)
-local contentContainer = Instance.new("Frame")
-contentContainer.Name = "ContentContainer"
-contentContainer.Parent = mainFrame
-contentContainer.BackgroundTransparency = 1
-contentContainer.Size = UDim2.new(1, 0, 1, -40)
-contentContainer.Position = UDim2.new(0, 0, 0, 40)
-contentContainer.ClipsDescendants = true
+-- Layouts
+Instance.new("UIListLayout", mainPage).Padding = UDim.new(0, 15); mainPage.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; mainPage.UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+Instance.new("UIListLayout", localModsPage).Padding = UDim.new(0, 10); localModsPage.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; localModsPage.UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top; localModsPage.UIListLayout.Padding = UDim.new(0, 20); localModsPage.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+Instance.new("UIPadding", playerModsPage).PaddingTop = UDim.new(0, 10)
 
--- Página do Menu Principal
-local mainPage = Instance.new("Frame")
-mainPage.Name = "MainPage"
-mainPage.Parent = contentContainer
-mainPage.BackgroundTransparency = 1
-mainPage.Size = UDim2.new(1, 0, 1, 0)
-local mainPageLayout = Instance.new("UIListLayout", mainPage)
-mainPageLayout.Padding = UDim.new(0, 15)
-mainPageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-mainPageLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-mainPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+-- Funções de UI reutilizáveis
+local function createButton(parent, text, size, layoutOrder)
+    local btn = Instance.new("TextButton", parent)
+    btn.Name = text:gsub(" ", "") .. "Button"; btn.BackgroundColor3 = Color3.fromRGB(60, 60, 75); btn.Size = size; btn.Font = Enum.Font.GothamSemibold; btn.Text = text; btn.TextColor3 = Color3.fromRGB(230, 230, 230); btn.TextSize = 16; btn.LayoutOrder = layoutOrder; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.MouseEnter:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 80, 95)}):Play() end)
+    btn.MouseLeave:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 75)}):Play() end)
+    return btn
+end
 
--- Página de Mods
-local modsPage = Instance.new("Frame")
-modsPage.Name = "ModsPage"
-modsPage.Parent = contentContainer
-modsPage.BackgroundTransparency = 1
-modsPage.Size = UDim2.new(1, 0, 1, 0)
-modsPage.Visible = false -- Começa invisível
-local modsPageLayout = Instance.new("UIListLayout", modsPage)
-modsPageLayout.Padding = UDim.new(0, 10)
-modsPageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-modsPageLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-modsPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Função para criar botões estilizados
-local function createButton(parent, text, layoutOrder)
-    local button = Instance.new("TextButton")
-    button.Parent = parent
-    button.Name = text:gsub(" ", "") .. "Button"
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
-    button.Size = UDim2.new(0.8, 0, 0, 45)
-    button.Font = Enum.Font.GothamSemibold
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(230, 230, 230)
-    button.TextSize = 16
-    button.LayoutOrder = layoutOrder
-    local corner = Instance.new("UICorner", button)
-    corner.CornerRadius = UDim.new(0, 8)
-    
-    -- Efeito de hover
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 80, 95)}):Play()
+local function createModButton(parent, text, layoutOrder)
+    local btn = createButton(parent, text .. " [OFF]", UDim2.new(0.85, 0, 0, 35), layoutOrder)
+    btn.TextColor3 = Color3.fromRGB(255, 100, 100); btn.Font = Enum.Font.Gotham
+    local state = false
+    btn.Activated:Connect(function()
+        state = not state
+        if state then btn.Text = text .. " [ON]"; btn.TextColor3 = Color3.fromRGB(100, 255, 100) else btn.Text = text .. " [OFF]"; btn.TextColor3 = Color3.fromRGB(255, 100, 100) end
     end)
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 75)}):Play()
-    end)
+    return btn
+end
+
+local function createSlider(parent, text, minVal, maxVal, startVal, layoutOrder)
+    local container = Instance.new("Frame", parent)
+    container.BackgroundTransparency = 1; container.Size = UDim2.new(0.85, 0, 0, 40); container.LayoutOrder = layoutOrder
     
-    return button
+    local label = Instance.new("TextLabel", container)
+    label.Font = Enum.Font.Gotham; label.Text = text .. ": " .. startVal; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left; label.BackgroundTransparency = 1; label.Size = UDim2.new(1, 0, 0, 15)
+    
+    local sliderBg = Instance.new("Frame", container)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(25, 25, 30); sliderBg.BorderSizePixel = 0; sliderBg.Size = UDim2.new(1, 0, 0, 8); sliderBg.Position = UDim2.new(0, 0, 0, 20); Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+    
+    local sliderFill = Instance.new("Frame", sliderBg)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218); sliderFill.BorderSizePixel = 0; Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+    
+    local handle = Instance.new("TextButton", sliderBg)
+    handle.Size = UDim2.new(0, 16, 0, 16); handle.AnchorPoint = Vector2.new(0.5, 0.5); handle.Position = UDim2.new((startVal - minVal) / (maxVal - minVal), 0, 0.5, 0); handle.Draggable = true; handle.BackgroundColor3 = Color3.fromRGB(240, 240, 240); handle.Text = ""; Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
+    
+    local value = startVal
+    local onValueChanged = Instance.new("BindableEvent")
+    
+    local function updateSlider(pos)
+        local relPos = math.clamp(pos, 0, sliderBg.AbsoluteSize.X)
+        handle.Position = UDim2.new(0, relPos, 0.5, 0)
+        local percent = relPos / sliderBg.AbsoluteSize.X
+        sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+        value = math.floor(minVal + (maxVal - minVal) * percent + 0.5)
+        label.Text = text .. ": " .. value
+        onValueChanged:Fire(value)
+    end
+    
+    handle.DragBegan:Connect(function() handle.BackgroundColor3 = Color3.fromRGB(200, 200, 200) end)
+    handle.DragEnded:Connect(function() handle.BackgroundColor3 = Color3.fromRGB(240, 240, 240) end)
+    handle.MouseDrag:Connect(function(_, _, _, _, rel)
+        updateSlider(handle.AbsolutePosition.X - sliderBg.AbsolutePosition.X + rel.X)
+    end)
+    updateSlider(handle.Position.X.Offset) -- Initialize
+    
+    return onValueChanged.Event
 end
 
 -- Botões da página principal
-local modMenuButton = createButton(mainPage, "Mod Menu", 1)
-local discordButton = createButton(mainPage, "Discord", 2)
-discordButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242) -- Cor especial para o Discord
-discordButton.MouseEnter:Connect(function()
-    TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(114, 137, 218)}):Play()
-end)
-discordButton.MouseLeave:Connect(function()
-    TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play()
-end)
+createButton(mainPage, "Mods Locais", UDim2.new(0.8, 0, 0, 45), 1).MouseButton1Click:Connect(function() mainPage.Visible = false; localModsPage.Visible = true end)
+createButton(mainPage, "Player Mods", UDim2.new(0.8, 0, 0, 45), 2).MouseButton1Click:Connect(function() mainPage.Visible = false; playerModsPage.Visible = true; end)
+local discordButton = createButton(mainPage, "Discord", UDim2.new(0.8, 0, 0, 45), 3)
+discordButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
 
--- Função para criar botões de mods (com estado ON/OFF)
-local function createModButton(parent, text, layoutOrder)
-    local button = createButton(parent, text .. " [OFF]", layoutOrder)
-    button.Size = UDim2.new(0.85, 0, 0, 35)
-    button.TextColor3 = Color3.fromRGB(255, 100, 100)
-    button.Font = Enum.Font.Gotham
-    
-    local state = false
-    button.Activated:Connect(function()
-        state = not state
-        if state then
-            button.Text = text .. " [ON]"
-            button.TextColor3 = Color3.fromRGB(100, 255, 100)
-        else
-            button.Text = text .. " [OFF]"
-            button.TextColor3 = Color3.fromRGB(255, 100, 100)
+-- Conteúdo da página de mods locais
+Instance.new("UIPadding", localModsPage).PaddingTop = UDim.new(0, 20)
+local flyButton = createModButton(localModsPage, "Fly", 1)
+local flySpeedSlider = createSlider(localModsPage, "Velocidade do Voo", 10, 200, flySpeed, 2)
+flySpeedSlider:Connect(function(value) flySpeed = value end)
+local noclipButton = createModButton(localModsPage, "Atravessar Parede", 3)
+local speedButton = createModButton(localModsPage, "Speed", 4)
+local speedSlider = createSlider(localModsPage, "Velocidade da Corrida", 16, 200, customWalkSpeed, 5)
+speedSlider:Connect(function(value) customWalkSpeed = value end)
+createButton(localModsPage, "Voltar", UDim2.new(0.85, 0, 0, 35), 6).MouseButton1Click:Connect(function() localModsPage.Visible = false; mainPage.Visible = true end)
+
+-- Conteúdo da página de player mods
+local playerListFrame = Instance.new("ScrollingFrame", playerModsPage)
+playerListFrame.Size = UDim2.new(1, -20, 1, -120); playerListFrame.Position = UDim2.new(0.5, 0, 0, 0); playerListFrame.AnchorPoint = Vector2.new(0.5, 0); playerListFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55); playerListFrame.BorderColor3 = Color3.fromRGB(25, 25, 30); Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 8); Instance.new("UIListLayout", playerListFrame).Padding = UDim.new(0, 5)
+local playerTemplate = Instance.new("Frame", nil)
+playerTemplate.Size = UDim2.new(1, -10, 0, 30); playerTemplate.BackgroundColor3 = Color3.fromRGB(60, 60, 75); playerTemplate.ClipsDescendants = true; Instance.new("UICorner", playerTemplate).CornerRadius = UDim.new(0, 6)
+local playerCheck = Instance.new("TextButton", playerTemplate)
+playerCheck.Size = UDim2.new(0, 20, 0, 20); playerCheck.Position = UDim2.new(0, 5, 0.5, 0); playerCheck.AnchorPoint = Vector2.new(0, 0.5); playerCheck.BackgroundColor3 = Color3.fromRGB(45, 45, 55); playerCheck.Text = ""; Instance.new("UICorner", playerCheck).CornerRadius = UDim.new(0, 4)
+local playerName = Instance.new("TextLabel", playerTemplate)
+playerName.Size = UDim2.new(1, -35, 1, 0); playerName.Position = UDim2.new(0, 30, 0, 0); playerName.Font = Enum.Font.Gotham; playerName.TextColor3 = Color3.fromRGB(230, 230, 230); playerName.TextSize = 14; playerName.TextXAlignment = Enum.TextXAlignment.Left
+
+local buttonContainer = Instance.new("Frame", playerModsPage)
+buttonContainer.Size = UDim2.new(1, -20, 0, 100); buttonContainer.Position = UDim2.new(0.5, 0, 1, -100); buttonContainer.AnchorPoint = Vector2.new(0.5, 0); buttonContainer.BackgroundTransparency = 1; Instance.new("UIGridLayout", buttonContainer).CellSize = UDim2.new(0.5, -5, 0, 40); buttonContainer.UIGridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local killButton = createButton(buttonContainer, "Matar Selecionados", UDim2.new(), 1)
+local kickButton = createButton(buttonContainer, "Kicka do Servidor", UDim2.new(), 2)
+createButton(buttonContainer, "Atualizar Lista", UDim2.new(), 3)
+createButton(buttonContainer, "Voltar", UDim2.new(), 4).MouseButton1Click:Connect(function() playerModsPage.Visible = false; mainPage.Visible = true end)
+
+-- LÓGICA
+local function populatePlayerList()
+    playerListFrame:ClearAllChildren()
+    Instance.new("UIListLayout", playerListFrame).Padding = UDim.new(0, 5) -- Re-add layout
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == localPlayer then continue end
+        local clone = playerTemplate:Clone()
+        clone.PlayerObject = player
+        clone.Name = player.Name
+        clone.Parent = playerListFrame
+        clone.check.Text = ""
+        clone.check.selected = false
+        clone.check.MouseButton1Click:Connect(function()
+            clone.check.selected = not clone.check.selected
+            clone.check.Text = clone.check.selected and "X" or ""
+        end)
+        clone.name.Text = player.Name
+    end
+end
+
+function getSelectedPlayers()
+    local selected = {}
+    for _, item in pairs(playerListFrame:GetChildren()) do
+        if item:IsA("Frame") and item.check.selected then
+            table.insert(selected, item.PlayerObject)
         end
-    end)
-    return button
+    end
+    return selected
 end
 
--- Botões da página de mods
-local flyButton = createModButton(modsPage, "Fly", 1)
-local noclipButton = createModButton(modsPage, "Atravessar Parede", 2)
-local speedButton = createModButton(modsPage, "Speed", 3)
-local backButton = createButton(modsPage, "Voltar", 4)
-backButton.BackgroundColor3 = Color3.fromRGB(80, 80, 95)
-
---==================================================================================--
---||                                LÓGICA DO SCRIPT                                ||--
---==================================================================================--
-
--- LÓGICA DE TRANSIÇÃO (LOADING -> MENU)
-function StartLoading()
-    local tweenInfo = TweenInfo.new(2.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(progressBarFill, tweenInfo, { Size = UDim2.new(1, 0, 1, 0) })
-    
-    tween:Play()
-    tween.Completed:Wait()
-    
-    loadingText.Text = "Pronto!"
-    task.wait(0.5)
-    
-    -- --- ALTERAÇÃO: Lógica de fade out corrigida ---
-    -- Anima a propriedade GroupTransparency do CanvasGroup para fazer tudo desaparecer suavemente.
-    local fadeOutInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad)
-    local fadeOutTween = TweenService:Create(loadingBackground, fadeOutInfo, {GroupTransparency = 1})
-    fadeOutTween:Play()
-    
-    fadeOutTween.Completed:Wait() -- Espera a animação de fade out terminar
-
-    loadingScreenGui:Destroy() -- Destrói a GUI antiga
-    mainGui.Enabled = true     -- Ativa a nova GUI
-    print("Calvo Studio GUI carregado com sucesso!")
-end
-
--- LÓGICA DOS BOTÕES DO MENU
-
--- Navegação entre páginas
-modMenuButton.MouseButton1Click:Connect(function()
-    mainPage.Visible = false
-    modsPage.Visible = true
-end)
-
-backButton.MouseButton1Click:Connect(function()
-    modsPage.Visible = false
-    mainPage.Visible = true
-end)
-
--- Botão de minimizar
-local isMinimized = false
-minimizeButton.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    contentContainer.Visible = not isMinimized
-    
-    local sizeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    if isMinimized then
-        TweenService:Create(mainFrame, sizeInfo, {Size = UDim2.new(0, 150, 0, 40)}):Play()
-        minimizeButton.BackgroundColor3 = Color3.fromRGB(89, 255, 89) -- Verde para restaurar
-    else
-        TweenService:Create(mainFrame, sizeInfo, {Size = UDim2.new(0, 320, 0, 350)}):Play()
-        minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 89, 89) -- Vermelho para fechar
+killButton.MouseButton1Click:Connect(function()
+    for _, player in pairs(getSelectedPlayers()) do
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.Health = 0
+            print("Tentando matar: " .. player.Name .. ". (Pode não funcionar)")
+        end
     end
 end)
 
--- Botão do Discord
-discordButton.MouseButton1Click:Connect(function()
-    print("Link do Discord: (Um link seria copiado aqui)")
-    -- setclipboard("SEU_LINK_AQUI") -- Descomente se tiver permissão para usar
+kickButton.MouseButton1Click:Connect(function()
+    for _, player in pairs(getSelectedPlayers()) do
+        print("Tentando kickar: " .. player.Name .. ". (Requer permissão de servidor, provavelmente não funcionará)")
+        player:Kick("Você foi kickado pelo Calvo Studio.")
+    end
 end)
 
--- LÓGICA DOS MODS
+playerModsPage.VisibleChanged:Connect(function(visible) if visible then populatePlayerList() end end)
+Players.PlayerAdded:Connect(populatePlayerList)
+Players.PlayerRemoving:Connect(populatePlayerList)
 
--- Botão Fly
+-- LÓGICA DOS MODS LOCAIS
 local flyGyro, flyVelocity
 flyButton.Activated:Connect(function()
     isFlying = not isFlying
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
-
     if isFlying then
-        flyGyro = Instance.new("BodyGyro")
-        flyGyro.P = 50000
-        flyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-        flyGyro.CFrame = rootPart.CFrame
-        flyGyro.Parent = rootPart
-
-        flyVelocity = Instance.new("BodyVelocity")
-        flyVelocity.Velocity = Vector3.new(0, 0, 0)
-        flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        flyVelocity.Parent = rootPart
-        
+        flyGyro = Instance.new("BodyGyro", rootPart); flyGyro.P = 50000; flyGyro.MaxTorque = Vector3.new(4e5, 4e5, 4e5); flyGyro.CFrame = rootPart.CFrame
+        flyVelocity = Instance.new("BodyVelocity", rootPart); flyVelocity.Velocity = Vector3.new(0,0,0); flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         humanoid.PlatformStand = true
     else
-        if flyGyro then flyGyro:Destroy() end
-        if flyVelocity then flyVelocity:Destroy() end
+        if flyGyro then flyGyro:Destroy() end; if flyVelocity then flyVelocity:Destroy() end
         humanoid.PlatformStand = false
     end
 end)
-
 RunService.RenderStepped:Connect(function()
     if isFlying and flyVelocity then
         local direction = Vector3.new(0,0,0)
-        local cameraCFrame = workspace.CurrentCamera.CFrame
-
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + cameraCFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - cameraCFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - cameraCFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + cameraCFrame.RightVector end
+        local camCF = workspace.CurrentCamera.CFrame
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + camCF.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then direction = direction + Vector3.new(0,1,0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then direction = direction - Vector3.new(0,1,0) end
-
-        if direction.Magnitude > 0 then
-            flyVelocity.Velocity = direction.Unit * 50 * flySpeed
-        else
-            flyVelocity.Velocity = Vector3.new(0, 0, 0)
-        end
-        
-        if flyGyro then flyGyro.CFrame = cameraCFrame end
+        flyVelocity.Velocity = direction.Magnitude > 0 and direction.Unit * flySpeed or Vector3.new(0,0,0)
+        if flyGyro then flyGyro.CFrame = camCF end
     end
 end)
 
--- Botão Noclip
 noclipButton.Activated:Connect(function()
     isNoclipping = not isNoclipping
-    -- Um pequeno truque para forçar o Roblox a atualizar o estado da colisão
-    RunService:Set3dRenderingEnabled(false)
-    RunService:Set3dRenderingEnabled(true)
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not isNoclipping
-        end
-    end
+    for _, part in pairs(character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = not isNoclipping end end
 end)
 
--- Botão Speed
 speedButton.Activated:Connect(function()
-    if humanoid.WalkSpeed == originalWalkSpeed then
-        humanoid.WalkSpeed = 75
-    else
-        humanoid.WalkSpeed = originalWalkSpeed
-    end
+    humanoid.WalkSpeed = humanoid.WalkSpeed == originalWalkSpeed and customWalkSpeed or originalWalkSpeed
 end)
 
--- Inicia todo o processo
+-- INICIAR
+local function StartLoading()
+    local tween = TweenService:Create(progressBarFill, TweenInfo.new(2.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
+    tween:Play(); tween.Completed:Wait()
+    loadingText.Text = "Pronto!"
+    task.wait(0.5)
+    local fadeOut = TweenService:Create(loadingBackground, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
+    fadeOut:Play(); fadeOut.Completed:Wait()
+    loadingScreenGui:Destroy()
+    mainGui.Enabled = true
+end
 StartLoading()
