@@ -1,7 +1,7 @@
 --[[
-    Script: Calvo Studio (V7)
+    Script: Calvo Studio (V8)
     Autor: Recriado e aprimorado com base na solicitação
-    Descrição: Lógica de carregamento 100% robusta para evitar qualquer tipo de travamento.
+    Descrição: GUI instantânea sem tela de carregamento para garantir funcionalidade.
 ]]
 
 --==================================================================================--
@@ -29,45 +29,14 @@ local customWalkSpeed = 75
 local flySpeed = 50
 
 --==================================================================================--
---||                                TELA DE CARREGAMENTO                            ||--
---==================================================================================--
-
-local loadingScreenGui = Instance.new("ScreenGui", playerGui)
-loadingScreenGui.Name = "LoadingScreenGUI"
-loadingScreenGui.ResetOnSpawn = false
-loadingScreenGui.DisplayOrder = 1000
-
-local loadingBackground = Instance.new("CanvasGroup", loadingScreenGui)
-loadingBackground.Name = "Background"
-loadingBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-loadingBackground.BorderColor3 = Color3.fromRGB(20, 20, 25)
-loadingBackground.BorderSizePixel = 2
-loadingBackground.Size = UDim2.new(0, 300, 0, 120)
-loadingBackground.Position = UDim2.new(0.5, 0, 0.5, 0)
-loadingBackground.AnchorPoint = Vector2.new(0.5, 0.5)
-Instance.new("UICorner", loadingBackground).CornerRadius = UDim.new(0, 12)
-
-local loadingTitle = Instance.new("TextLabel", loadingBackground)
-loadingTitle.Font = Enum.Font.GothamSemibold; loadingTitle.Text = "Calvo Studio"; loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255); loadingTitle.TextSize = 24; loadingTitle.BackgroundTransparency = 1; loadingTitle.Size = UDim2.new(1, 0, 0, 40); loadingTitle.Position = UDim2.new(0.5, 0, 0, 0); loadingTitle.AnchorPoint = Vector2.new(0.5, 0)
-
-local progressBarBackground = Instance.new("Frame", loadingBackground)
-progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50); progressBarBackground.Size = UDim2.new(0.8, 0, 0, 15); progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0); progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5); Instance.new("UICorner", progressBarBackground).CornerRadius = UDim.new(1, 0)
-
-local progressBarFill = Instance.new("Frame", progressBarBackground)
-progressBarFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218); progressBarFill.Size = UDim2.new(0, 0, 1, 0); Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
-
-local loadingText = Instance.new("TextLabel", loadingBackground)
-loadingText.Font = Enum.Font.Gotham; loadingText.Text = "Carregando..."; loadingText.TextColor3 = Color3.fromRGB(180, 180, 180); loadingText.TextSize = 14; loadingText.BackgroundTransparency = 1; loadingText.Size = UDim2.new(1, 0, 0, 20); loadingText.Position = UDim2.new(0.5, 0, 1, -15); loadingText.AnchorPoint = Vector2.new(0.5, 1)
-
-
---==================================================================================--
 --||                                   MENU PRINCIPAL                               ||--
 --==================================================================================--
 
+-- A GUI principal agora é ativada imediatamente.
 local mainGui = Instance.new("ScreenGui", playerGui)
 mainGui.Name = "CalvoStudioGUI"
 mainGui.ResetOnSpawn = false
-mainGui.Enabled = false -- COMEÇA DESATIVADO
+mainGui.Enabled = true -- ATIVADO DIRETAMENTE
 
 local mainFrame = Instance.new("Frame", mainGui)
 mainFrame.Name = "MainFrame"; mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45); mainFrame.BorderColor3 = Color3.fromRGB(20, 20, 25); mainFrame.BorderSizePixel = 2; mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); mainFrame.AnchorPoint = Vector2.new(0.5, 0.5); mainFrame.Size = UDim2.new(0, 400, 0, 420); mainFrame.Draggable = true; mainFrame.Active = true; mainFrame.ClipsDescendants = true; Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
@@ -179,25 +148,4 @@ RunService.RenderStepped:Connect(function() if isFlying and flyVelocity then loc
 noclipButton.Activated:Connect(function() isNoclipping = not isNoclipping; for _, p in pairs(character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = not isNoclipping end end end)
 speedButton.Activated:Connect(function() humanoid.WalkSpeed = humanoid.WalkSpeed == originalWalkSpeed and customWalkSpeed or originalWalkSpeed end)
 
---==================================================================================--
---||                          LÓGICA DE INÍCIO (À PROVA DE FALHAS)                  ||--
---==================================================================================--
-
-local function StartLoading()
-    -- Anima a barra de progresso
-    TweenService:Create(progressBarFill, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-    
-    -- Inicia uma tarefa paralela e garantida para finalizar o carregamento
-    task.spawn(function()
-        -- Espera o tempo total da animação + um pequeno buffer
-        task.wait(3.0) 
-        
-        -- Executa a transição final, não importa o que aconteça
-        mainGui.Enabled = true
-        loadingScreenGui:Destroy()
-        print("Calvo Studio GUI carregado com sucesso!")
-    end)
-end
-
--- Inicia todo o processo
-StartLoading()
+print("Calvo Studio GUI carregado com sucesso!")
