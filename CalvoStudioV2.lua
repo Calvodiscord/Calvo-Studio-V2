@@ -540,3 +540,100 @@ end)
 -- Conectar botões de navegação
 for name, data in pairs(Categories) do
     data.Button.MouseButton1Click:C
+CloseBtn.MouseButton1Click:Connect(function()
+    AnimateOut(MenuContainer, 0.3, function() ScreenGui:Destroy() end)
+end)
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainMenu.Visible = false
+        BallIcon.Visible = true
+        CreateTween(MenuContainer, {Size = UDim2.new(0, 64, 0, 64)}, 0.4):Play()
+    else
+        BallIcon.Visible = false
+        MainMenu.Visible = true
+        local targetSize = ModMenuBody.Visible and UDim2.new(0, 500, 0, 350) or UDim2.new(0, 360, 0, 250)
+        CreateTween(MenuContainer, {Size = targetSize}, 0.4):Play()
+    end
+end)
+
+OpenModMenuBtn.MouseButton1Click:Connect(function()
+    HomeBody.Visible = false
+    ModMenuBody.Visible = true
+    BackBtn.Visible = true
+    Title.Position = UDim2.new(0, 30, 0.5, 0) -- Move o título para a esquerda quando o menu de mods é aberto
+    CreateTween(MenuContainer, {Size = UDim2.new(0, 500, 0, 350)}, 0.3):Play()
+    SwitchCategory("Main") -- Abre a primeira categoria por padrão
+end)
+
+BackBtn.MouseButton1Click:Connect(function()
+    ModMenuBody.Visible = false
+    HomeBody.Visible = true
+    BackBtn.Visible = false
+    Title.Position = UDim2.new(0.5, 0, 0.5, 0)
+    CreateTween(MenuContainer, {Size = UDim2.new(0, 360, 0, 250)}, 0.3):Play()
+end)
+
+-- Conectar botões de navegação
+for name, data in pairs(Categories) do
+    data.Button.MouseButton1Click:Connect(function()
+        SwitchCategory(name)
+    end)
+end
+
+-- // FUNCIONALIDADE DE ARRASTAR O MENU //
+local dragging = false
+local dragStartPos
+local menuStartPos
+
+local function startDrag(input)
+    if not isMinimized then
+        dragging = true
+        dragStartPos = UserInputService:GetMouseLocation()
+        menuStartPos = MenuContainer.Position
+    end
+end
+
+local function moveDrag(input)
+    if dragging then
+        local delta = UserInputService:GetMouseLocation() - dragStartPos
+        local newX = menuStartPos.X.Offset + delta.X
+        local newY = menuStartPos.Y.Offset + delta.Y
+        MenuContainer.Position = UDim2.new(0, newX, 0, newY)
+    end
+end
+
+local function endDrag()
+    dragging = false
+end
+
+Header.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessedEvent then
+        startDrag(input)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        moveDrag(input)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        endDrag()
+    end
+end)
+
+BallIcon.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessedEvent and isMinimized then
+        dragging = true
+        dragStartPos = UserInputService:GetMouseLocation()
+        menuStartPos = MenuContainer.Position
+    end
+end)
+
+-- Posiciona o menu no centro da tela e depois move para a posição inicial
+MenuContainer.Position = UDim2.fromScale(0.5, 0.5)
+CreateTween(MenuContainer, {Size = UDim2.new(0, 360, 0, 250), BackgroundTransparency = 0}, 0.5):Play()
