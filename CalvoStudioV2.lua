@@ -1,12 +1,13 @@
 --[[
-    Script: Calvo Studio
+    Script: Calvo Studio (V6.1 - Correção de Inicialização e Bugs)
    ATUALIZAÇÕES;
-- Adicionado ESP para jogadores (Nome, Vida, Dispositivo).
-- Otimização geral e organização do código.
+- CORRIGIDO: O script agora carrega a GUI imediatamente, sem travar na inicialização.
+- MELHORADO: A obtenção do personagem é feita sob demanda, tornando os mods mais estáveis.
+- CORRIGIDO: Bugs na função de ESP que causavam erros.
 ]]
 
 --==================================================================================--
---||                                   SERVIÇOS E JOGADOR                           ||--
+--||                                   SERVIÇOS                                   ||--
 --==================================================================================--
 
 local TweenService = game:GetService("TweenService")
@@ -16,8 +17,9 @@ local RunService = game:GetService("RunService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
-local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+
+-- CORREÇÃO: As variáveis do personagem e humanoide foram removidas daqui para evitar
+-- que o script trave na inicialização. Elas serão obtidas quando necessário.
 
 --==================================================================================--
 --||                           CONFIGURAÇÕES E ESTADO                               ||--
@@ -27,11 +29,11 @@ local humanoid = character:WaitForChild("Humanoid")
 local isFlying = false
 local isNoclipping = false
 local isSpeedEnabled = false
-local isEspEnabled = false -- NOVO: Estado do ESP
+local isEspEnabled = false
 local noclipConnection = nil
 
 -- Variáveis de configuração dos mods
-local originalWalkSpeed = humanoid.WalkSpeed
+local originalWalkSpeed = 16 -- Valor padrão do Roblox
 local flySpeed = 50
 local customWalkSpeed = 50
 
@@ -123,7 +125,6 @@ titleLabel.TextSize = 18
 titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
 titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 
--- --- Botões de Controle da Janela (Fechar e Minimizar) ---
 local controlButtonsFrame = Instance.new("Frame", titleBar)
 controlButtonsFrame.BackgroundTransparency = 1
 controlButtonsFrame.Size = UDim2.new(0, 60, 1, 0)
@@ -225,7 +226,7 @@ local function createModButton(parent, text, layoutOrder)
             button.TextColor3 = Color3.fromRGB(255, 100, 100)
         end
     end)
-    return button, function() return state end -- Retorna o botão e uma função para obter seu estado
+    return button, function() return state end
 end
 
 local function createSlider(parent, text, min, max, initialValue, layoutOrder, callback)
@@ -234,7 +235,6 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 	container.Size = UDim2.new(0.85, 0, 0, 40)
 	container.LayoutOrder = layoutOrder
 	container.ClipsDescendants = true
-
 	local title = Instance.new("TextLabel", container)
 	title.Font = Enum.Font.Gotham
 	title.Text = text
@@ -243,7 +243,6 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 	title.BackgroundTransparency = 1
 	title.Size = UDim2.new(0.5, 0, 0.5, 0)
 	title.TextXAlignment = Enum.TextXAlignment.Left
-
 	local valueLabel = Instance.new("TextLabel", container)
 	valueLabel.Font = Enum.Font.GothamBold
 	valueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -253,26 +252,22 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 	valueLabel.Position = UDim2.new(1, 0, 0, 0)
 	valueLabel.AnchorPoint = Vector2.new(1, 0)
 	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-
 	local track = Instance.new("Frame", container)
 	track.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 	track.BorderSizePixel = 0
 	track.Size = UDim2.new(1, 0, 0, 8)
 	track.Position = UDim2.new(0, 0, 0.75, 0)
 	Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
-
 	local fill = Instance.new("Frame", track)
 	fill.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
 	fill.BorderSizePixel = 0
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
-	local dragger = Instance.new("TextButton", track) -- Usar TextButton para melhor captura de input
-	dragger.Size = UDim2.new(1, 0, 3, 0) -- Área de arrastar maior
+	local dragger = Instance.new("TextButton", track)
+	dragger.Size = UDim2.new(1, 0, 3, 0)
 	dragger.Position = UDim2.new(0.5, 0, 0.5, 0)
 	dragger.AnchorPoint = Vector2.new(0.5, 0.5)
 	dragger.BackgroundTransparency = 1
 	dragger.Text = ""
-
 	local function updateSlider(value)
 		local clampedValue = math.clamp(value, min, max)
 		local percentage = (clampedValue - min) / (max - min)
@@ -283,7 +278,6 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 		end
 	end
 	updateSlider(initialValue)
-
 	dragger.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			local function updateFromInput()
@@ -293,16 +287,13 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 				local newValue = min + (max - min) * percentage
 				updateSlider(newValue)
 			end
-			
-			updateFromInput() -- Atualiza no primeiro clique
-
+			updateFromInput()
 			local moveConnection
 			moveConnection = UserInputService.InputChanged:Connect(function(inputObj)
 				if inputObj.UserInputType == Enum.UserInputType.MouseMovement or inputObj.UserInputType == Enum.UserInputType.Touch then
 					updateFromInput()
 				end
 			end)
-			
 			local releaseConnection
 			releaseConnection = UserInputService.InputEnded:Connect(function(inputObj)
 				if inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch then
@@ -314,7 +305,6 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 	end)
 	return container
 end
-
 
 --==================================================================================--
 --||                               ELEMENTOS DA GUI                               ||--
@@ -330,22 +320,19 @@ discordButton.MouseLeave:Connect(function()
     TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play()
 end)
 
-local espButton, getEspState = createModButton(modsPage, "ESP Players", 1) -- NOVO
+local espButton, getEspState = createModButton(modsPage, "ESP Players", 1)
 local flyButton, getFlyState = createModButton(modsPage, "Fly", 2)
-createSlider(modsPage, "Fly Speed", 1, 100, flySpeed, 3, function(value)
-    flySpeed = value
-end)
-
+createSlider(modsPage, "Fly Speed", 1, 200, flySpeed, 3, function(value) flySpeed = value end)
 local noclipButton, getNoclipState = createModButton(modsPage, "Atravessar Parede", 4)
-
 local speedButton, getSpeedState = createModButton(modsPage, "Speed", 5)
-createSlider(modsPage, "Walk Speed", originalWalkSpeed, 100, customWalkSpeed, 6, function(value)
+createSlider(modsPage, "Walk Speed", 16, 200, customWalkSpeed, 6, function(value)
     customWalkSpeed = value
     if isSpeedEnabled then
-        humanoid.WalkSpeed = customWalkSpeed
+        local character = localPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid.WalkSpeed = customWalkSpeed end
     end
 end)
-
 local backButton = createButton(modsPage, "Voltar", 7)
 backButton.BackgroundColor3 = Color3.fromRGB(80, 80, 95)
 backButton.Size = UDim2.new(0.85, 0, 0, 35)
@@ -358,53 +345,28 @@ function StartLoading()
     local tween = TweenService:Create(progressBarFill, TweenInfo.new(2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
     tween:Play()
     tween.Completed:Wait()
-    
     loadingText.Text = "Pronto!"
     task.wait(0.5)
-    
     local fadeOutTween = TweenService:Create(loadingBackground, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
     fadeOutTween:Play()
     fadeOutTween.Completed:Wait()
-
     loadingScreenGui:Destroy()
     mainGui.Enabled = true
     print("Calvo Studio GUI carregado com sucesso!")
 end
 
--- LÓGICA DA JANELA E NAVEGAÇÃO
-closeButton.MouseButton1Click:Connect(function()
-    mainGui.Enabled = false
-end)
-
+closeButton.MouseButton1Click:Connect(function() mainGui.Enabled = false end)
 local isMinimized = false
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     contentContainer.Visible = not isMinimized
-    
     local sizeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local targetSize
-    if isMinimized then
-		targetSize = UDim2.new(0, mainFrame.Size.X.Offset, 0, titleBar.Size.Y.Offset)
-    else
-        targetSize = UDim2.new(0, 320, 0, 420)
-    end
-	TweenService:Create(mainFrame, sizeInfo, {Size = targetSize}):Play()
+    local targetSize = isMinimized and UDim2.new(0, mainFrame.Size.X.Offset, 0, titleBar.Size.Y.Offset) or UDim2.new(0, 320, 0, 420)
+    TweenService:Create(mainFrame, sizeInfo, {Size = targetSize}):Play()
 end)
-
-modMenuButton.MouseButton1Click:Connect(function()
-    mainPage.Visible = false
-    modsPage.Visible = true
-end)
-
-backButton.MouseButton1Click:Connect(function()
-    modsPage.Visible = false
-    mainPage.Visible = true
-end)
-
-discordButton.MouseButton1Click:Connect(function()
-    print("Botão do Discord clicado!")
-    -- setclipboard("SEU_LINK_AQUI") -- Descomente se tiver permissão
-end)
+modMenuButton.MouseButton1Click:Connect(function() mainPage.Visible = false; modsPage.Visible = true end)
+backButton.MouseButton1Click:Connect(function() modsPage.Visible = false; mainPage.Visible = true end)
+discordButton.MouseButton1Click:Connect(function() print("Botão do Discord clicado!") end)
 
 --==================================================================================--
 --||                                LÓGICA DOS MODS                                 ||--
@@ -414,6 +376,8 @@ end)
 local flyGyro, flyVelocity
 flyButton.Activated:Connect(function()
     isFlying = getFlyState()
+    local character = localPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
 
@@ -423,12 +387,10 @@ flyButton.Activated:Connect(function()
         flyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
         flyGyro.CFrame = rootPart.CFrame
         flyGyro.Parent = rootPart
-
         flyVelocity = Instance.new("BodyVelocity")
         flyVelocity.Velocity = Vector3.new()
         flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         flyVelocity.Parent = rootPart
-        
         humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     else
         if flyGyro then flyGyro:Destroy() end
@@ -440,7 +402,12 @@ end)
 -- --- Lógica do Speed ---
 speedButton.Activated:Connect(function()
     isSpeedEnabled = getSpeedState()
+    local character = localPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
     if isSpeedEnabled then
+        originalWalkSpeed = humanoid.WalkSpeed -- Salva a velocidade atual antes de mudar
         humanoid.WalkSpeed = customWalkSpeed
     else
         humanoid.WalkSpeed = originalWalkSpeed
@@ -450,36 +417,29 @@ end)
 -- --- Lógica do Noclip ---
 noclipButton.Activated:Connect(function()
     isNoclipping = getNoclipState()
+    local character = localPlayer.Character
+    if not character then return end
+
     if isNoclipping then
         noclipConnection = RunService.Stepped:Connect(function()
-            for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+            for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
         end)
     else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
         for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
+            if part:IsA("BasePart") then part.CanCollide = true end
         end
     end
 end)
 
--- --- NOVO: Lógica do ESP ---
+-- --- Lógica do ESP ---
 espButton.Activated:Connect(function()
     isEspEnabled = getEspState()
     if not isEspEnabled then
-        -- Se desativado, remove todos os ESPs existentes
         for player, esp in pairs(espTracker) do
-            if esp then
-                esp:Destroy()
-            end
+            if esp then esp:Destroy() end
         end
         espTracker = {}
     end
@@ -488,11 +448,12 @@ end)
 function createOrUpdateEsp(player)
     local playerChar = player.Character
     local head = playerChar and playerChar:FindFirstChild("Head")
-    if not head then return end
+    if not head then if espTracker[player] then espTracker[player]:Destroy(); espTracker[player] = nil end return end
     
     local espGui = espTracker[player]
-    if not espGui then
-        espGui = Instance.new("BillboardGui")
+    if not espGui or espGui.Parent ~= head then
+        if espGui then espGui:Destroy() end
+        espGui = Instance.new("BillboardGui", head)
         espGui.Name = "PlayerESP"
         espGui.Adornee = head
         espGui.Size = UDim2.new(0, 150, 0, 70)
@@ -500,18 +461,10 @@ function createOrUpdateEsp(player)
         espGui.ResetOnSpawn = false
 		espGui.LightInfluence = 0
 		espGui.SizeOffset = Vector2.new(0, 2)
-
         local background = Instance.new("Frame", espGui)
         background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         background.BackgroundTransparency = 0.4
         background.Size = UDim2.new(1, 0, 1, 0)
         Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
-
         local nameLabel = Instance.new("TextLabel", background)
-        nameLabel.Name = "NameLabel"
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.TextSize = 16
-        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Size = UDim2.new(1, -10, 0, 20)
-        nameLabel.Position = UDim2.new(0.5, 0, 0, 
+        nameLabel.Name = "Name
