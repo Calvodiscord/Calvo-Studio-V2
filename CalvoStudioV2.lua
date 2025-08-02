@@ -539,9 +539,10 @@ end)
 
 -- Conectar botões de navegação
 for name, data in pairs(Categories) do
- data.Button.MouseButton1Click:Connect(function()
-            
-            
+    data.Button.MouseButton1Click:Connect(function()
+        SwitchCategory(name)
+    end)
+end
 
 MinimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
