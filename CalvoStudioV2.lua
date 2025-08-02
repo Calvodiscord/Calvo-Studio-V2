@@ -1,12 +1,11 @@
 --[[
-    Script: CALVO MOD - PRISON LIFE V3.1 (Correção de Carregamento)
-    Versão: 3.1
+    Script: CALVO MOD - PRISON LIFE V3.2 (Correção de Exibição)
+    Versão: 3.2
 
    ATUALIZAÇÕES:
-- CORRIGIDO: O loop infinito na tela de carregamento foi resolvido. O script agora avança para o menu principal corretamente.
-- MELHORADO: A lógica de inicialização foi refeita para ser mais estável e garantir a transição suave das animações.
-- DESIGN: Interface moderna e profissional inspirada na imagem de referência.
-- FUNCIONALIDADES: Inclui mods de LocalPlayer, Sistema de Teleporte e de Idiomas (PT/EN).
+- CORRIGIDO: Erro crítico que impedia a interface de aparecer após a tela de carregamento foi resolvido.
+- RESTAURADO: As seções de Teleporte e Créditos agora criam e exibem seus botões e textos corretamente.
+- MELHORADO: Estabilidade geral do script aprimorada para evitar falhas silenciosas na inicialização.
 ]]
 
 --==================================================================================--
@@ -117,7 +116,7 @@ local loadingGui = Instance.new("ScreenGui", playerGui)
 loadingGui.Name = "LoadingGui"
 loadingGui.ResetOnSpawn = false
 loadingGui.DisplayOrder = 9999
-loadingGui.GroupTransparency = 0 -- Inicia visível
+loadingGui.GroupTransparency = 0 
 
 local loadingFrame = Instance.new("Frame", loadingGui)
 loadingFrame.Size = UDim2.new(0, 250, 0, 80)
@@ -162,7 +161,7 @@ Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
 local mainGui = Instance.new("ScreenGui", playerGui)
 mainGui.Name = "CalvoModV3Gui"
 mainGui.ResetOnSpawn = false
-mainGui.Enabled = false -- Começa desabilitado
+mainGui.Enabled = false 
 
 local mainContainer = Instance.new("Frame", mainGui)
 mainContainer.Size = UDim2.new(0, 550, 0, 350)
@@ -231,6 +230,7 @@ local function createRightPanelTitle(parent, key)
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.BackgroundTransparency = 1
     title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Text = LANGUAGES[currentLanguage][key] or key
     return title
 end
 
@@ -245,7 +245,8 @@ local function createModButton(parent, key, modName)
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
     
     local function updateText()
-        button.Text = LANGUAGES[currentLanguage][key] .. " [" .. (modStates[modName] and "ON" or "OFF") .. "]"
+        local status = modStates[modName] and "ON" or "OFF"
+        button.Text = (LANGUAGES[currentLanguage][key] or key) .. " [" .. status .. "]"
     end
     
     button.MouseButton1Click:Connect(function()
@@ -286,7 +287,7 @@ local function createSlider(parent, key, settingName, min, max, callback)
     slider.Value = modSettings[settingName]
     
     local function updateText()
-        title.Text = LANGUAGES[currentLanguage][key]
+        title.Text = LANGUAGES[currentLanguage][key] or key
         valueLabel.Text = tostring(math.floor(slider.Value))
     end
     
@@ -296,6 +297,7 @@ local function createSlider(parent, key, settingName, min, max, callback)
         if callback then callback(value) end
     end)
     
+    updateText() -- Initial text set
     return updateText
 end
 
@@ -307,6 +309,7 @@ local function createNormalButton(parent, key, onClick)
     button.Font = Enum.Font.GothamSemibold
     button.TextSize = 14
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Text = LANGUAGES[currentLanguage][key] or key
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
     if onClick then button.MouseButton1Click:Connect(onClick) end
     return button
@@ -322,9 +325,11 @@ local function createTextLabel(parent, key, isDescription)
     label.BackgroundTransparency = 1
     label.TextWrapped = true
     label.TextXAlignment = Enum.TextXAlignment.Left
+    label.SizeConstraint = Enum.SizeConstraint.RelativeY
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.Text = LANGUAGES[currentLanguage][key] or key
     return label
 end
-
 
 local function populateRightPanel(category)
     for _, v in ipairs(rightPanel:GetChildren()) do
@@ -336,7 +341,7 @@ local function populateRightPanel(category)
         table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "fly", "isFlying"))
         table.insert(uiElements.rightPanelUpdaters, createSlider(rightPanel, "fly_speed", "flySpeed", 0, 100))
         table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "speed", "isSpeedEnabled"))
-        table.insert(uiElements.rightPanelUpdaters, createSlider(rightPanel, "walk_speed", "walkSpeed", 0, 100, function(value)
+        table.insert(uiElements.rightPanelUpdaters, createSlider(rightPanel, "walk_speed", "walkSpeed", 16, 100, function(value)
              if modStates.isSpeedEnabled and localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
                 localPlayer.Character.Humanoid.WalkSpeed = value
             end
@@ -344,7 +349,10 @@ local function populateRightPanel(category)
         table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "noclip", "isNoclipping"))
         table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "esp", "isEspEnabled"))
     elseif category == "category_teleports" then
+        createRightPanelTitle(rightPanel, "teleport_title")
         local statusLabel = createTextLabel(rightPanel, "no_location_saved", true)
+        statusLabel.Size = UDim2.new(0.9, 0, 0, 20)
+        
         createNormalButton(rightPanel, "save_location", function()
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
@@ -362,10 +370,11 @@ local function populateRightPanel(category)
         end)
     elseif category == "category_credits" then
         createRightPanelTitle(rightPanel, "credits_title")
-        createTextLabel(rightPanel, "update_1_title", false)
+        createTextLabel(rightPanel, "update_1_title", false).Size = UDim2.new(0.9, 0, 0, 20)
         createTextLabel(rightPanel, "update_1_desc", true)
-        createTextLabel(rightPanel, "update_2_title", false)
+        createTextLabel(rightPanel, "update_2_title", false).Size = UDim2.new(0.9, 0, 0, 20)
         createTextLabel(rightPanel, "update_2_desc", true)
+        Instance.new("Frame", rightPanel).Size = UDim2.new(0,0,0,10) -- Spacer
         createNormalButton(rightPanel, "change_lang_pt", function() currentLanguage = "pt"; updateAllUIText() end)
         createNormalButton(rightPanel, "change_lang_en", function() currentLanguage = "en"; updateAllUIText() end)
     else -- Placeholder
@@ -391,7 +400,6 @@ function updateAllUIText()
         updaterFunc()
     end
 end
-
 
 local function selectCategory(button, categoryKey)
     if activeCategoryButton then
@@ -458,14 +466,18 @@ RunService.RenderStepped:Connect(function()
     -- Lógica do Noclip
     if modStates.isNoclipping and not modConnections.noclipConnection then
         modConnections.noclipConnection = RunService.Stepped:Connect(function()
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
+            if localPlayer.Character then
+                for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
             end
         end)
     elseif not modStates.isNoclipping and modConnections.noclipConnection then
         modConnections.noclipConnection:Disconnect(); modConnections.noclipConnection = nil
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
+        if localPlayer.Character then
+            for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
         end
     end
 end)
@@ -489,7 +501,7 @@ function Start()
             if uiElements.categoryButtons.category_localplayer then
                 selectCategory(uiElements.categoryButtons.category_localplayer, "category_localplayer")
             end
-            print("CALVO MOD V3.1 Carregado com sucesso!")
+            print("CALVO MOD V3.2 Carregado com sucesso!")
         end)
         
         fadeOutTween:Play()
@@ -500,4 +512,4 @@ end
 
 closeButton.MouseButton1Click:Connect(function() mainGui.Enabled = false end)
 
-Start()
+pcall(Start) -- Usa pcall para uma inicialização mais segura
