@@ -1,145 +1,542 @@
 --[[
-    Script: CALVO MOD V4 (PRISON LIFE) - Edição de Carregamento
-    Versão: 4.0
-    
+    Script: CALVO MOD V1
+    Descrição: Interface de usuário completa para Roblox, recriada em Lua.
+    Funcionalidades:
+    - Tela de carregamento com barra de progresso.
+    - Menu principal com transição para o painel de mods.
+    - Painel de mods com abas, inspirado na imagem.
+    - Funcionalidade de minimizar para uma bola arrastável.
+    - Design moderno e animações fluidas com TweenService.
 ]]
 
---==================================================================================--
---||                                   SERVIÇOS                                   ||--
---==================================================================================--
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+-- Proteção para garantir que o script rode em um ambiente de executor
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- // SERVIÇOS E VARIÁVEIS GLOBAIS //
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local localPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
---==================================================================================--
---||                                   CONFIGURAÇÕES                                ||--
---==================================================================================--
-local currentLanguage = "pt"
-local modStates = {isFlying=false, isNoclipping=false, isSpeedEnabled=false, isEspEnabled=false, isGodModeEnabled=false, isInfiniteAmmoEnabled=false, isTargetLocked=false}
-local modSettings = {originalWalkSpeed=16, flySpeed=80, walkSpeed=80}
-local uiData = {activeCategoryButton=nil, contentPanels={}, uiUpdaters={}, isMinimized=false, kickTargetName="", selectedPlayer=nil, lockedTarget=nil, savedPosition=nil}
-
-local LANGUAGES = {
-    pt = {
-        title = "CALVO MOD V4", category_admin = "Admin", category_opcoes = "Opções", category_combate = "Combate",
-        category_teleports = "Teleportes", category_esp = "ESP", category_idiomas = "Idiomas", category_weapons = "Armas",
-        fly = "Voar", noclip = "Atravessar Parede", speed = "Correr Rápido", walk_speed = "Velocidade de Corrida",
-        kick_player = "Kickar Player", kick_target_placeholder = "Nome do Player", server_info = "Info do Servidor",
-        server_uptime = "Tempo de Atividade", players = "Jogadores",
-        select_player = "Selecione um Player:", tp_to_player = "Ir até Player", kill_player = "Matar Player",
-        lock_player = "Travar Player",
-        god_mode = "Modo Deus", infinite_ammo = "Munição Infinita",
-        get_weapon_m9 = "Pegar M9", get_weapon_remington = "Pegar Remington 870", get_weapon_ak47 = "Pegar AK-47",
-        tp_to_criminals = "Ir para Base Criminal", tp_to_prison = "Ir para Prisão",
-        save_location = "Salvar Local", teleport_to_location = "Ir para Local Salvo",
-        esp_players = "ESP Players", esp_distance = "Distância",
-        change_lang_pt = "Português", change_lang_en = "English", status_on = "ON", status_off = "OFF"
-    },
-    en = {
-        title = "CALVO MOD V4", category_admin = "Admin", category_opcoes = "Options", category_combate = "Combat",
-        category_teleports = "Teleports", category_esp = "ESP", category_idiomas = "Languages", category_weapons = "Weapons",
-        fly = "Fly", noclip = "Noclip", speed = "Speed Hack", walk_speed = "Walk Speed",
-        kick_player = "Kick Player", kick_target_placeholder = "Player's Name", server_info = "Server Info",
-        server_uptime = "Uptime", players = "Players",
-        select_player = "Select a Player:", tp_to_player = "Go to Player", kill_player = "Kill Player",
-        lock_player = "Lock Player",
-        god_mode = "God Mode", infinite_ammo = "Infinite Ammo",
-        get_weapon_m9 = "Get M9", get_weapon_remington = "Get Remington 870", get_weapon_ak47 = "Get AK-47",
-        tp_to_criminals = "Go to Criminals' Base", tp_to_prison = "Go to Prison",
-        save_location = "Save Location", teleport_to_location = "Teleport to Saved Location",
-        esp_players = "ESP Players", esp_distance = "Distance",
-        change_lang_pt = "Portuguese", change_lang_en = "English", status_on = "ON", status_off = "OFF"
-    }
+-- // CONFIGURAÇÕES DA UI //
+local Theme = {
+    AccentColor = Color3.fromHex("4F46E5"),
+    AccentHover = Color3.fromHex("6366F1"),
+    BackgroundColor = Color3.fromHex("111827"),
+    SecondaryColor = Color3.fromHex("1F2937"),
+    TertiaryColor = Color3.fromHex("374151"),
+    TextColor = Color3.fromHex("FFFFFF"),
+    MutedTextColor = Color3.fromHex("9CA3AF"),
+    HeaderColor = Color3.fromHex("000000"),
+    BorderColor = Color3.fromHex("4B5563"),
+    SuccessColor = Color3.fromHex("22C55E"),
+    ErrorColor = Color3.fromHex("EF4444")
 }
 
---==================================================================================--
---||                          FUNÇÕES DE AÇÃO (BLINDADAS)                         ||--
---==================================================================================--
-local function GetWeapon(weaponName) pcall(function() ReplicatedStorage:WaitForChild("WeaponEvent", 10):FireServer("Create", weaponName) end) end
-local function TeleportPlayer(targetCFrame) local char=localPlayer.Character; if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.CFrame=targetCFrame*CFrame.new(0,5,0) end end
-local function KillPlayer(targetPlayer) if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("Head") then return end; pcall(function() ReplicatedStorage:WaitForChild("WeaponEvent", 5):FireServer("Damage", targetPlayer.Character.Head, 101) end) end
+-- Asset IDs dos Ícones (Você pode encontrar outros na Toolbox do Roblox Studio)
+local IconIDs = {
+    Minimize = "rbxassetid://9995999587",
+    Close = "rbxassetid://13511784923",
+    Back = "rbxassetid://12190913161",
+    Bolt = "rbxassetid://6032099961",
+    Main = "rbxassetid://5101472398",
+    Visual = "rbxassetid://6032093933",
+    Shop = "rbxassetid://10722193266",
+    Random = "rbxassetid://9882212793",
+    Credit = "rbxassetid://4915354534"
+}
 
---==================================================================================--
---||                           FUNÇÃO PRINCIPAL DA UI                             ||--
---==================================================================================--
-local function Create(i,p) local inst=Instance.new(i); for prop,v in pairs(p) do pcall(function() inst[prop]=v end) end; return inst end
+-- // CRIAÇÃO DA UI //
+-- Remove UI antiga para evitar duplicação
+pcall(function() LocalPlayer.PlayerGui.CalvoModScreenGui:Destroy() end)
 
-local function BuildUI()
-    if localPlayer.PlayerGui:FindFirstChild("CalvoModV4Gui") then localPlayer.PlayerGui.CalvoModV4Gui:Destroy() end
-    local mainGui=Create("ScreenGui", {Name="CalvoModV4Gui", Parent=localPlayer.PlayerGui, ResetOnSpawn=false, ZIndexBehavior=Enum.ZIndexBehavior.Global})
-    local mainContainer=Create("Frame",{Name="Container",Parent=mainGui,Size=UDim2.new(0,560,0,420),Position=UDim2.new(0.5,-280,0.5,-210),BackgroundColor3=Color3.fromRGB(35,35,45),Draggable=true,Active=true,ClipsDescendants=true})
-    Create("UICorner",{Parent=mainContainer,CornerRadius=UDim.new(0,8)});Create("UIStroke",{Parent=mainContainer,Color=Color3.fromRGB(80,80,100),Thickness=1.5})
-    local topBar=Create("Frame",{Name="TopBar",Parent=mainContainer,Size=UDim2.new(1,0,0,35),BackgroundColor3=Color3.fromRGB(28,28,36)})
-    local topBarTitle=Create("TextLabel",{Name="Title",Parent=topBar,Size=UDim2.new(1,-80,1,0),Position=UDim2.new(0,15,0,0),Font=Enum.Font.GothamBold,TextColor3=Color3.fromRGB(255,255,255),TextSize=16,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1})
-    local closeButton=Create("TextButton",{Name="Close",Parent=topBar,Size=UDim2.new(0,35,0,35),Position=UDim2.new(1,-35,0,0),Text="X",Font=Enum.Font.GothamBold,TextColor3=Color3.fromRGB(255,255,255),TextSize=16,BackgroundColor3=Color3.fromRGB(28,28,36),ZIndex=2})
-    local minimizeButton=Create("TextButton",{Name="Minimize",Parent=topBar,Size=UDim2.new(0,35,0,35),Position=UDim2.new(1,-70,0,0),Text="_",Font=Enum.Font.GothamBold,TextColor3=Color3.fromRGB(255,255,255),TextSize=16,BackgroundColor3=Color3.fromRGB(28,28,36),ZIndex=2})
-    local leftPanel=Create("Frame",{Name="LeftPanel",Parent=mainContainer,Size=UDim2.new(0,150,1,-35),Position=UDim2.new(0,0,0,35),BackgroundColor3=Color3.fromRGB(40,40,52)})
-    Create("UIListLayout",{Parent=leftPanel,Padding=UDim.new(0,5),HorizontalAlignment=Enum.HorizontalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,10)})
-    local rightPanel=Create("Frame",{Name="RightPanel",Parent=mainContainer,Size=UDim2.new(1,-150,1,-35),Position=UDim2.new(0,150,0,35),BackgroundTransparency=1})
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CalvoModScreenGui"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer.PlayerGui
 
-    local function updateAllUIText() pcall(function() local lang=LANGUAGES[currentLanguage]; topBarTitle.Text=lang.title; for k,u in pairs(uiData.uiUpdaters) do pcall(u) end end) end
-    local function selectCategory(b, p) if uiData.activeCategoryButton then uiData.activeCategoryButton.BackgroundColor3=Color3.fromRGB(55,55,70); uiData.activeCategoryButton:FindFirstChild("UIStroke").Enabled=false end; b.BackgroundColor3=Color3.fromRGB(45,45,60); b:FindFirstChild("UIStroke").Enabled=true; uiData.activeCategoryButton=b; for _,panel in pairs(uiData.contentPanels) do panel.Visible=false end; p.Visible=true end
-    
-    local function createCategory(key, order)
-        local panel=Create("ScrollingFrame",{Name=key.."Panel",Parent=rightPanel,Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BorderSizePixel=0,Visible=false,AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarImageColor3=Color3.fromRGB(0,170,255),ScrollBarThickness=6})
-        Create("UIListLayout",{Parent=panel,Padding=UDim.new(0,10),HorizontalAlignment=Enum.HorizontalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder}); Create("UIPadding",{Parent=panel,PaddingTop=UDim.new(0,15),PaddingLeft=UDim.new(0,20),PaddingRight=UDim.new(0,20)})
-        uiData.contentPanels[key]=panel
-        local button=Create("TextButton",{Name=key,Parent=leftPanel,Size=UDim2.new(0.85,0,0,35),BackgroundColor3=Color3.fromRGB(55,55,70),Font=Enum.Font.GothamSemibold,TextSize=15,TextColor3=Color3.fromRGB(255,255,255),LayoutOrder=order})
-        Create("UICorner",{Parent=button,CornerRadius=UDim.new(0,6)}); Create("UIStroke",{Parent=button,Color=Color3.fromRGB(0,170,255),Thickness=2,Enabled=false})
-        button.MouseButton1Click:Connect(function() if not uiData.isMinimized then selectCategory(button, panel) end end)
-        uiData.uiUpdaters[key.."_cat"] = function() button.Text = LANGUAGES[currentLanguage][key] end
-        return panel, button
+-- Container principal que será animado e arrastado
+local MenuContainer = Instance.new("Frame")
+MenuContainer.Name = "MenuContainer"
+MenuContainer.Size = UDim2.new(0, 360, 0, 250)
+MenuContainer.Position = UDim2.fromScale(0.5, 0.5)
+MenuContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+MenuContainer.BackgroundColor3 = Theme.BackgroundColor
+MenuContainer.BackgroundTransparency = 0.1
+MenuContainer.BorderSizePixel = 1
+MenuContainer.BorderColor3 = Theme.BorderColor
+MenuContainer.ClipsDescendants = true
+MenuContainer.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MenuContainer
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Theme.BorderColor
+UIStroke.Thickness = 1
+UIStroke.Parent = MenuContainer
+
+-- Efeito de Backdrop (desfoque)
+if syn and syn.blur then -- Apenas para executores que suportam
+    local blur = Instance.new("Frame")
+    blur.Name = "BlurBackdrop"
+    blur.Size = UDim2.new(1, 0, 1, 0)
+    blur.Parent = MenuContainer
+    syn.blur(blur, 10)
+end
+
+-- // TELA DE CARREGAMENTO //
+local LoadingScreen = Instance.new("Frame")
+LoadingScreen.Name = "LoadingScreen"
+LoadingScreen.Size = UDim2.new(1, 0, 1, 0)
+LoadingScreen.BackgroundColor3 = Theme.BackgroundColor
+LoadingScreen.BackgroundTransparency = 1 -- Invisível, os filhos são visíveis
+LoadingScreen.Parent = MenuContainer
+
+local LoadingTitle = Instance.new("TextLabel")
+LoadingTitle.Name = "LoadingTitle"
+LoadingTitle.Size = UDim2.new(1, -20, 0, 40)
+LoadingTitle.Position = UDim2.new(0.5, 0, 0.3, 0)
+LoadingTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+LoadingTitle.BackgroundTransparency = 1
+LoadingTitle.Font = Enum.Font.Poppins
+LoadingTitle.Text = "CALVO MOD <font color='#4F46E5'>V1</font>"
+LoadingTitle.TextColor3 = Theme.TextColor
+LoadingTitle.TextSize = 32
+LoadingTitle.RichText = true
+LoadingTitle.Parent = LoadingScreen
+
+local LoadingSubtitle = Instance.new("TextLabel")
+LoadingSubtitle.Name = "LoadingSubtitle"
+LoadingSubtitle.Size = UDim2.new(1, -20, 0, 20)
+LoadingSubtitle.Position = UDim2.new(0.5, 0, 0.5, 0)
+LoadingSubtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+LoadingSubtitle.BackgroundTransparency = 1
+LoadingSubtitle.Font = Enum.Font.Poppins
+LoadingSubtitle.Text = "Carregando recursos..."
+LoadingSubtitle.TextColor3 = Theme.MutedTextColor
+LoadingSubtitle.TextSize = 14
+LoadingSubtitle.Parent = LoadingScreen
+
+local ProgressBarBG = Instance.new("Frame")
+ProgressBarBG.Name = "ProgressBarBG"
+ProgressBarBG.Size = UDim2.new(0.8, 0, 0, 10)
+ProgressBarBG.Position = UDim2.new(0.5, 0, 0.7, 0)
+ProgressBarBG.AnchorPoint = Vector2.new(0.5, 0.5)
+ProgressBarBG.BackgroundColor3 = Theme.TertiaryColor
+ProgressBarBG.Parent = LoadingScreen
+Instance.new("UICorner", ProgressBarBG)
+
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Name = "ProgressBar"
+ProgressBar.Size = UDim2.new(0, 0, 1, 0) -- Começa com 0 de largura
+ProgressBar.BackgroundColor3 = Theme.AccentColor
+ProgressBar.Parent = ProgressBarBG
+Instance.new("UICorner", ProgressBar)
+
+-- // MENU PRINCIPAL //
+local MainMenu = Instance.new("Frame")
+MainMenu.Name = "MainMenu"
+MainMenu.Size = UDim2.new(1, 0, 1, 0)
+MainMenu.BackgroundTransparency = 1
+MainMenu.Visible = false
+MainMenu.Parent = MenuContainer
+
+-- Cabeçalho
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Theme.HeaderColor
+Header.BackgroundTransparency = 0.7
+Header.Parent = MainMenu
+
+local BackBtn = Instance.new("ImageButton")
+BackBtn.Name = "BackBtn"
+BackBtn.Size = UDim2.new(0, 24, 0, 24)
+BackBtn.Position = UDim2.new(0, 15, 0.5, 0)
+BackBtn.AnchorPoint = Vector2.new(0, 0.5)
+BackBtn.BackgroundTransparency = 1
+BackBtn.Image = IconIDs.Back
+BackBtn.Visible = false
+BackBtn.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0.5, 0, 1, 0)
+Title.Position = UDim2.new(0.5, 0, 0.5, 0)
+Title.AnchorPoint = Vector2.new(0.5, 0.5)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.Poppins
+Title.Text = "CALVO MOD <font color='#4F46E5'>V1</font>"
+Title.TextColor3 = Theme.TextColor
+Title.TextSize = 20
+Title.RichText = true
+Title.Parent = Header
+
+local MinimizeBtn = Instance.new("ImageButton")
+MinimizeBtn.Name = "MinimizeBtn"
+MinimizeBtn.Size = UDim2.new(0, 20, 0, 20)
+MinimizeBtn.Position = UDim2.new(1, -55, 0.5, 0)
+MinimizeBtn.AnchorPoint = Vector2.new(1, 0.5)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Image = IconIDs.Minimize
+MinimizeBtn.Parent = Header
+
+local CloseBtn = Instance.new("ImageButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+CloseBtn.Position = UDim2.new(1, -20, 0.5, 0)
+CloseBtn.AnchorPoint = Vector2.new(1, 0.5)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Image = IconIDs.Close
+CloseBtn.Parent = Header
+
+-- Corpo da Home
+local HomeBody = Instance.new("Frame")
+HomeBody.Name = "HomeBody"
+HomeBody.Size = UDim2.new(1, 0, 1, -50)
+HomeBody.Position = UDim2.new(0, 0, 0, 50)
+HomeBody.BackgroundTransparency = 1
+HomeBody.Parent = MainMenu
+
+local HomeButtonsLayout = Instance.new("UIListLayout")
+HomeButtonsLayout.Padding = UDim.new(0, 15)
+HomeButtonsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+HomeButtonsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+HomeButtonsLayout.Parent = HomeBody
+
+local OpenModMenuBtn = Instance.new("TextButton")
+OpenModMenuBtn.Name = "OpenModMenuBtn"
+OpenModMenuBtn.Size = UDim2.new(0.8, 0, 0, 50)
+OpenModMenuBtn.BackgroundColor3 = Theme.AccentColor
+OpenModMenuBtn.Font = Enum.Font.Poppins
+OpenModMenuBtn.Text = "Mod Menu"
+OpenModMenuBtn.TextColor3 = Theme.TextColor
+OpenModMenuBtn.TextSize = 18
+Instance.new("UICorner", OpenModMenuBtn).CornerRadius = UDim.new(0, 8)
+OpenModMenuBtn.Parent = HomeBody
+
+local IdiomasBtn = Instance.new("TextButton")
+IdiomasBtn.Name = "IdiomasBtn"
+IdiomasBtn.Size = UDim2.new(0.8, 0, 0, 50)
+IdiomasBtn.BackgroundColor3 = Theme.TertiaryColor
+IdiomasBtn.Font = Enum.Font.Poppins
+IdiomasBtn.Text = "Idiomas"
+IdiomasBtn.TextColor3 = Theme.TextColor
+IdiomasBtn.TextSize = 18
+Instance.new("UICorner", IdiomasBtn).CornerRadius = UDim.new(0, 8)
+IdiomasBtn.Parent = HomeBody
+
+-- Corpo do Mod Menu
+local ModMenuBody = Instance.new("Frame")
+ModMenuBody.Name = "ModMenuBody"
+ModMenuBody.Size = UDim2.new(1, 0, 1, -50)
+ModMenuBody.Position = UDim2.new(0, 0, 0, 50)
+ModMenuBody.BackgroundTransparency = 1
+ModMenuBody.Visible = false
+ModMenuBody.Parent = MainMenu
+
+local NavFrame = Instance.new("Frame")
+NavFrame.Name = "NavFrame"
+NavFrame.Size = UDim2.new(0.35, 0, 1, 0)
+NavFrame.BackgroundColor3 = Theme.HeaderColor
+NavFrame.BackgroundTransparency = 0.5
+NavFrame.Parent = ModMenuBody
+
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.Padding = UDim.new(0, 5)
+NavLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NavLayout.Parent = NavFrame
+
+local ContentFrame = Instance.new("ScrollingFrame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(0.65, 0, 1, 0)
+ContentFrame.Position = UDim2.new(0.35, 0, 0, 0)
+ContentFrame.BackgroundColor3 = Theme.SecondaryColor
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Será ajustado
+ContentFrame.ScrollBarImageColor3 = Theme.AccentColor
+ContentFrame.ScrollBarThickness = 5
+ContentFrame.Parent = ModMenuBody
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ContentLayout.Parent = ContentFrame
+
+-- Ícone da Bola (Minimizado)
+local BallIcon = Instance.new("ImageLabel")
+BallIcon.Name = "BallIcon"
+BallIcon.Size = UDim2.new(1, 0, 1, 0)
+BallIcon.BackgroundTransparency = 1
+BallIcon.Image = IconIDs.Bolt
+BallIcon.ImageColor3 = Theme.TextColor
+BallIcon.Visible = false
+BallIcon.Parent = MenuContainer
+
+-- // FUNÇÕES DA UI //
+local isMinimized = false
+
+local function CreateTween(instance, propertyTable, duration)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+    return TweenService:Create(instance, tweenInfo, propertyTable)
+end
+
+local function AnimateOut(instance, duration, callback)
+    local transparencyTween = CreateTween(instance, {BackgroundTransparency = 1}, duration)
+    if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+        transparencyTween = CreateTween(instance, {TextTransparency = 1}, duration)
+    elseif instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
+        transparencyTween = CreateTween(instance, {ImageTransparency = 1}, duration)
     end
-
-    local function createStandardButton(p, k, cb) local b=Create("TextButton",{Name=k,Parent=p,Size=UDim2.new(1,0,0,35),BackgroundColor3=Color3.fromRGB(55,55,70),Font=Enum.Font.GothamSemibold,TextSize=14,TextColor3=Color3.fromRGB(255,255,255)}); Create("UICorner",{Parent=b,CornerRadius=UDim.new(0,6)}); b.MouseButton1Click:Connect(cb); uiData.uiUpdaters[k]=function() b.Text=LANGUAGES[currentLanguage][k] end; return b end
-    local function createToggleButton(p,k,s) local b=createStandardButton(p,k,function() modStates[s]=not modStates[s]; uiData.uiUpdaters[k]() end); Create("UIStroke",{Parent=b,Color=Color3.fromRGB(80,80,100)}); local old=uiData.uiUpdaters[k]; uiData.uiUpdaters[k]=function() old(); local l=LANGUAGES[currentLanguage]; local st=modStates[s] and l.status_on or l.status_off; b.Text=l[k].." ["..st.."]"; b:FindFirstChild("UIStroke").Color=modStates[s] and Color3.fromRGB(0,170,255) or Color3.fromRGB(80,80,100) end end
-    local function createSlider(p,t,vt,vk,min,max,st) local f=Create("Frame",{Parent=p,Size=UDim2.new(1,0,0,50),BackgroundTransparency=1}); Create("UIListLayout",{Parent=f,FillDirection=Enum.FillDirection.Vertical,Padding=UDim.new(0,5)}); local tf=Create("Frame",{Parent=f,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1}); local tl=Create("TextLabel",{Parent=tf,Size=UDim2.new(0.7,0,1,0),Font=Enum.Font.Gotham,TextSize=14,TextColor3=Color3.fromRGB(220,220,220),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Left}); local vl=Create("TextLabel",{Parent=tf,Size=UDim2.new(0.3,0,1,0),Position=UDim2.new(0.7,0,0,0),Font=Enum.Font.GothamBold,TextSize=14,TextColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right}); local s=Create("Slider",{Parent=f,Size=UDim2.new(1,0,0,20),MinValue=min,MaxValue=max,Value=vt[vk]}); s.ValueChanged:Connect(function(v) vt[vk]=math.floor(v/st)*st; uiData.uiUpdaters[t]() end); uiData.uiUpdaters[t]=function() tl.Text=LANGUAGES[currentLanguage][t]; vl.Text=tostring(math.floor(vt[vk])); s.Value=vt[vk] end end
-
-    local adminPanel,adminButton=createCategory("category_admin",1); local opcoesPanel,_=createCategory("category_opcoes",2); local combatPanel,_=createCategory("category_combate",3); local weaponsPanel,_=createCategory("category_weapons",4); local tpPanel,_=createCategory("category_teleports",5); local espPanel,_=createCategory("category_esp",6); local langPanel,_=createCategory("category_idiomas",7)
-
-    pcall(function()
-        local kickTitle=Create("TextLabel",{Parent=adminPanel,Size=UDim2.new(1,0,0,25),Font=Enum.Font.GothamBold,TextSize=16,TextColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=1});uiData.uiUpdaters.kick_player=function()kickTitle.Text=LANGUAGES[currentLanguage].kick_player end
-        local nameBox=Create("TextBox",{Parent=adminPanel,Size=UDim2.new(1,0,0,35),BackgroundColor3=Color3.fromRGB(55,55,70),Font=Enum.Font.Gotham,TextColor3=Color3.fromRGB(220,220,220),PlaceholderColor3=Color3.fromRGB(150,150,150)});Create("UICorner",{Parent=nameBox,CornerRadius=UDim.new(0,6)});uiData.uiUpdaters.kick_target_placeholder=function()nameBox.PlaceholderText=LANGUAGES[currentLanguage].kick_target_placeholder end;nameBox.FocusLost:Connect(function()uiData.kickTargetName=nameBox.Text end)
-        createStandardButton(adminPanel,"kick_player",function()local p=Players:FindFirstChild(uiData.kickTargetName);if p then p:Kick("Kickado pelo Calvo Mod V4")end end)
-        createStandardButton(adminPanel,"server_info",function() local iF=Create("Frame",{Parent=mainGui,Size=UDim2.new(0,300,0,100),Position=UDim2.new(0.5,-150,0.5,-50),BackgroundColor3=Color3.fromRGB(45,45,60)});Create("UICorner",{Parent=iF,CornerRadius=UDim.new(0,8)});Create("UIStroke",{Parent=iF,Color=Color3.fromRGB(90,90,110)});Create("UIListLayout",{Parent=iF,Padding=UDim.new(0,10),HorizontalAlignment=Enum.HorizontalAlignment.Center});Create("UIPadding",{Parent=iF,PaddingTop=UDim.new(0,10),PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10)});local up=math.floor(Workspace.DistributedGameTime or tick()-game.StartTime);local upT=string.format("%s: %d min",LANGUAGES[currentLanguage].server_uptime,math.floor(up/60));local pT=string.format("%s: %d/%d",LANGUAGES[currentLanguage].players,#Players:GetPlayers(),Players.MaxPlayers);Create("TextLabel",{Parent=iF,Size=UDim2.new(1,0,0,25),Font=Enum.Font.GothamBold,TextSize=15,TextColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=1,Text=upT});Create("TextLabel",{Parent=iF,Size=UDim2.new(1,0,0,25),Font=Enum.Font.GothamBold,TextSize=15,TextColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=1,Text=pT});task.delay(5,function()if iF then iF:Destroy()end end)end)
-    end)
-    pcall(function() createToggleButton(opcoesPanel,"fly","isFlying");createToggleButton(opcoesPanel,"noclip","isNoclipping");createToggleButton(opcoesPanel,"speed","isSpeedEnabled");createSlider(opcoesPanel,"walk_speed",modSettings,"walkSpeed",16,150,1) end)
-    pcall(function()
-        createToggleButton(combatPanel,"god_mode","isGodModeEnabled");createToggleButton(combatPanel,"infinite_ammo","isInfiniteAmmoEnabled");local t=Create("TextLabel",{Parent=combatPanel,Size=UDim2.new(1,0,0,20),Font=Enum.Font.GothamBold,TextColor3=Color3.fromRGB(255,255,255),TextSize=15,BackgroundTransparency=1,Margin=UDim.new(0,10)});uiData.uiUpdaters.select_player=function()t.Text=LANGUAGES[currentLanguage].select_player end;local pLF=Create("ScrollingFrame",{Parent=combatPanel,Size=UDim2.new(1,0,0,120),BackgroundColor3=Color3.fromRGB(40,40,52)});Create("UIListLayout",{Parent=pLF});Create("UICorner",{Parent=pLF,CornerRadius=UDim.new(0,6)});local aF=Create("Frame",{Parent=combatPanel,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1});Create("UIListLayout",{Parent=aF,Padding=UDim.new(0,10)})
-        local function rPL() pLF.CanvasSize=UDim2.new();for _,c in pairs(pLF:GetChildren())do if c:IsA("GuiObject")then c:Destroy()end end;for _,p in pairs(Players:GetPlayers())do if p~=localPlayer then local b=createStandardButton(pLF,p.Name,function()uiData.selectedPlayer=p;for _,btn in pairs(pLF:GetChildren())do if btn:IsA("TextButton")then btn.BackgroundColor3=Color3.fromRGB(55,55,70)end end;b.BackgroundColor3=Color3.fromRGB(0,170,255)end);b.Text=p.Name end end end
-        local function cA(k,cb) createStandardButton(aF,k,function()if uiData.selectedPlayer then cb(uiData.selectedPlayer)end end)end;cA("tp_to_player",function(p)if p.Character and p.Character.PrimaryPart then TeleportPlayer(p.Character.PrimaryPart.CFrame)end end);cA("kill_player",KillPlayer);cA("kick_player",function(p)p:Kick()end);cA("lock_player",function(p)modStates.isTargetLocked=not modStates.isTargetLocked;uiData.lockedTarget=modStates.isTargetLocked and p or nil end);rPL();Players.PlayerAdded:Connect(rPL);Players.PlayerRemoving:Connect(rPL)
-    end)
-    pcall(function()createStandardButton(weaponsPanel,"get_weapon_m9",function()GetWeapon("M9")end);createStandardButton(weaponsPanel,"get_weapon_remington",function()GetWeapon("Remington 870")end);createStandardButton(weaponsPanel,"get_weapon_ak47",function()GetWeapon("AK-47")end)end)
-    pcall(function()createStandardButton(tpPanel,"tp_to_criminals",function()local s=Workspace:WaitForChild("Spawns",5)and Workspace.Spawns:WaitForChild("CriminalsSpawn",5);if s then TeleportPlayer(s.CFrame)end end);createStandardButton(tpPanel,"tp_to_prison",function()local s=Workspace:WaitForChild("Spawns",5)and Workspace.Spawns:WaitForChild("YardSpawn",5);if s then TeleportPlayer(s.CFrame)end end);createStandardButton(tpPanel,"save_location",function()local r=localPlayer.Character and localPlayer.Character.PrimaryPart;if r then uiData.savedPosition=r.CFrame end end);createStandardButton(tpPanel,"teleport_to_location",function()if uiData.savedPosition then TeleportPlayer(uiData.savedPosition)end end)end)
-    pcall(function()createToggleButton(espPanel,"esp_players","isEspEnabled")end)
-    -- CORREÇÃO APLICADA AQUI: A sintaxe anterior estava errada.
-    pcall(function()createStandardButton(langPanel, "change_lang_pt", function() currentLanguage="pt"; updateAllUIText() end);createStandardButton(langPanel, "change_lang_en", function() currentLanguage="en"; updateAllUIText() end)end)
-
-    closeButton.MouseButton1Click:Connect(function()mainGui:Destroy()end);minimizeButton.MouseButton1Click:Connect(function()uiData.isMinimized=not uiData.isMinimized;local s=uiData.isMinimized and UDim2.new(0,560,0,35)or UDim2.new(0,560,0,420);TweenService:Create(mainContainer,TweenInfo.new(0.3),{Size=s}):Play()end)
     
-    updateAllUIText()
-    selectCategory(adminButton, adminButton.Parent.Parent:FindFirstChild("RightPanel"):FindFirstChild("category_adminPanel"))
+    transparencyTween.Completed:Connect(function()
+        instance.Visible = false
+        if callback then callback() end
+    end)
+    transparencyTween:Play()
 end
 
---==================================================================================--
---||                          LÓGICA CENTRAL (RenderStepped)                      ||--
---==================================================================================--
-local function ManageCoreLogic()
-    local char=localPlayer.Character; local humanoid=char and char:FindFirstChildOfClass("Humanoid"); if not humanoid or not humanoid.RootPart then return end; local rootPart=humanoid.RootPart; if modStates.isGodModeEnabled then humanoid.Health=humanoid.MaxHealth end; if modStates.isInfiniteAmmoEnabled then local tool=char:FindFirstChildOfClass("Tool"); if tool and (tool:FindFirstChild("Ammo") or tool:FindFirstChild("ammo")) then local ammo=tool.Ammo or tool.ammo; if ammo and ammo.Value<999 then ammo.Value=999 end end end; humanoid.WalkSpeed=modStates.isSpeedEnabled and modSettings.walkSpeed or modSettings.originalWalkSpeed; if modStates.isNoclipping then for _,part in ipairs(char:GetDescendants()) do if part:IsA("BasePart") then pcall(function() part.CanCollide=false end) end end; humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,modStates.isFlying); if modStates.isFlying then humanoid:ChangeState(Enum.HumanoidStateType.Flying); local camCF=Workspace.CurrentCamera.CFrame; local flyDir=(camCF.lookVector*(UserInputService:IsKeyDown(Enum.KeyCode.W) and -1 or UserInputService:IsKeyDown(Enum.KeyCode.S) and 1 or 0)+camCF.rightVector*(UserInputService:IsKeyDown(Enum.KeyCode.A) and -1 or UserInputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0)+Vector3.new(0,(UserInputService:IsKeyDown(Enum.KeyCode.E) and 1 or UserInputService:IsKeyDown(Enum.KeyCode.Q) and -1 or 0),0)); rootPart.Velocity=flyDir.Unit*modSettings.flySpeed end; if uiData.lockedTarget and uiData.lockedTarget.Character and uiData.lockedTarget.Character:FindFirstChild("HumanoidRootPart") then uiData.lockedTarget.Character.HumanoidRootPart.Anchored=modStates.isTargetLocked else modStates.isTargetLocked=false; uiData.lockedTarget=nil end; for userId,esp in pairs(espTracker) do local player=Players:GetPlayerByUserId(userId); if not player or not player.Character or not modStates.isEspEnabled then esp.Gui:Destroy(); espTracker[userId]=nil end end; if modStates.isEspEnabled then local localPos=rootPart.Position; for _,player in pairs(Players:GetPlayers()) do if player~=localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then local targetRoot,targetHumanoid=player.Character.HumanoidRootPart,player.Character.Humanoid; local esp=espTracker[player.UserId]; if not esp then esp={}; esp.Gui=Create("BillboardGui",{Parent=targetRoot,Name="PlayerESP",AlwaysOnTop=true,Size=UDim2.new(4,0,4,0),Adornee=targetRoot,ClipsDescendants=false,ZIndex=10}); esp.Box=Create("Frame",{Parent=esp.Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),Size=UDim2.new(1,0,2,0),BackgroundTransparency=1}); Create("UIStroke",{Parent=esp.Box,Color=Color3.fromHSV(0,0,1),Thickness=1.5}); esp.NameLabel=Create("TextLabel",{Parent=esp.Gui,ZIndex=12,Position=UDim2.new(0.5,-100,0.5,-60),Size=UDim2.new(0,200,0,20),Font=Enum.Font.GothamBold,TextSize=16,TextColor3=Color3.fromHSV(0,0,1),BackgroundTransparency=1,Text=player.Name}); esp.DistLabel=Create("TextLabel",{Parent=esp.Gui,ZIndex=12,Position=UDim2.new(0.5,-100,0.5,45),Size=UDim2.new(0,200,0,20),Font=Enum.Font.Gotham,TextSize=14,TextColor3=Color3.fromHSV(0,0,0.8),BackgroundTransparency=1}); esp.HealthBarBG=Create("Frame",{Parent=esp.Gui,ZIndex=11,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0.5,-45),Size=UDim2.new(1.2,0,0,8),BackgroundColor3=Color3.fromHSV(0,0,0),BackgroundTransparency=0.5,BorderSizePixel=0}); esp.HealthBar=Create("Frame",{Parent=esp.HealthBarBG,ZIndex=12,Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.fromHSV(0.33,1,1),BorderSizePixel=0}); espTracker[player.UserId]=esp end; esp.Gui.Enabled=true; local dist=(localPos-targetRoot.Position).Magnitude; esp.DistLabel.Text=string.format("%s: %.0fm",LANGUAGES[currentLanguage].esp_distance,dist); local healthPercent=math.clamp(targetHumanoid.Health/targetHumanoid.MaxHealth,0,1); esp.HealthBar.Size=UDim2.new(healthPercent,0,1,0); esp.HealthBar.BackgroundColor3=Color3.fromHSV(0.33*healthPercent,1,1) end end end
+local function AnimateIn(instance, duration)
+    instance.Visible = true
+    if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+        CreateTween(instance, {TextTransparency = 0}, duration):Play()
+    elseif instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
+        CreateTween(instance, {ImageTransparency = 0}, duration):Play()
+    else
+        CreateTween(instance, {BackgroundTransparency = 0.1}, duration):Play()
+    end
 end
 
---==================================================================================--
---||                             INICIALIZAÇÃO E LOOPS                            ||--
---==================================================================================--
-local function Initialize()
-    pcall(BuildUI)
-    RunService.RenderStepped:Connect(ManageCoreLogic)
-    local char=localPlayer.Character or localPlayer.CharacterAdded:Wait(); local humanoid=char:WaitForChild("Humanoid"); modSettings.originalWalkSpeed=humanoid.WalkSpeed
-    localPlayer.CharacterAdded:Connect(function(newChar) local newHumanoid=newChar:WaitForChild("Humanoid"); modSettings.originalWalkSpeed=newHumanoid.WalkSpeed end)
+-- Simulação de Carregamento
+coroutine.wrap(function()
+    for i = 1, 100, math.random(5, 15) do
+        local progress = math.min(i / 100, 1)
+        CreateTween(ProgressBar, {Size = UDim2.new(progress, 0, 1, 0)}, 0.2):Play()
+        task.wait(0.1)
+    end
+    CreateTween(ProgressBar, {Size = UDim2.new(1, 0, 1, 0)}, 0.2):Play()
+    task.wait(0.5)
+    
+    AnimateOut(LoadingScreen, 0.3, function()
+        MainMenu.Visible = true
+        AnimateIn(MainMenu, 0.3)
+    end)
+end)()
+
+-- Função para criar abas e conteúdo
+local Categories = {}
+local function CreateCategory(name, iconId, layoutOrder)
+    local navButton = Instance.new("TextButton")
+    navButton.Name = name .. "Btn"
+    navButton.Size = UDim2.new(0.9, 0, 0, 40)
+    navButton.BackgroundColor3 = Theme.TertiaryColor
+    navButton.BackgroundTransparency = 1
+    navButton.Font = Enum.Font.Poppins
+    navButton.Text = "  " .. name
+    navButton.TextColor3 = Theme.MutedTextColor
+    navButton.TextSize = 16
+    navButton.TextXAlignment = Enum.TextXAlignment.Left
+    navButton.LayoutOrder = layoutOrder
+    Instance.new("UICorner", navButton).CornerRadius = UDim.new(0, 6)
+    navButton.Parent = NavFrame
+
+    local icon = Instance.new("ImageLabel")
+    icon.Size = UDim2.new(0, 20, 0, 20)
+    icon.Position = UDim2.new(0, 10, 0.5, 0)
+    icon.AnchorPoint = Vector2.new(0, 0.5)
+    icon.BackgroundTransparency = 1
+    icon.Image = iconId
+    icon.ImageColor3 = Theme.MutedTextColor
+    icon.Parent = navButton
+
+    local contentPanel = Instance.new("Frame")
+    contentPanel.Name = name .. "Content"
+    contentPanel.Size = UDim2.new(0.9, 0, 0, 0) -- Altura automática
+    contentPanel.AutomaticSize = Enum.AutomaticSize.Y
+    contentPanel.BackgroundTransparency = 1
+    contentPanel.Visible = false
+    contentPanel.Parent = ContentFrame
+    
+    local panelLayout = Instance.new("UIListLayout")
+    panelLayout.Padding = UDim.new(0, 10)
+    panelLayout.Parent = contentPanel
+
+    Categories[name] = {
+        Button = navButton,
+        Icon = icon,
+        Panel = contentPanel
+    }
+    return contentPanel
 end
 
-Initialize()
+-- Função para trocar de categoria
+local activeCategory = nil
+local function SwitchCategory(name)
+    if activeCategory then
+        Categories[activeCategory].Button.BackgroundColor3 = Theme.TertiaryColor
+        Categories[activeCategory].Button.BackgroundTransparency = 1
+        Categories[activeCategory].Button.TextColor3 = Theme.MutedTextColor
+        Categories[activeCategory].Icon.ImageColor3 = Theme.MutedTextColor
+        Categories[activeCategory].Panel.Visible = false
+    end
+    
+    Categories[name].Button.BackgroundColor3 = Theme.AccentColor
+    Categories[name].Button.BackgroundTransparency = 0
+    Categories[name].Button.TextColor3 = Theme.TextColor
+    Categories[name].Icon.ImageColor3 = Theme.TextColor
+    Categories[name].Panel.Visible = true
+    activeCategory = name
+    
+    -- Atualiza o tamanho do Canvas do ScrollingFrame
+    task.wait()
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y)
+end
+
+-- Função para criar um Toggle Switch
+local function CreateToggle(parent, title, description, enabled)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 60)
+    frame.BackgroundColor3 = Theme.TertiaryColor
+    frame.BackgroundTransparency = 0.5
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    frame.Parent = parent
+
+    local textFrame = Instance.new("Frame")
+    textFrame.Size = UDim2.new(0.7, 0, 1, 0)
+    textFrame.BackgroundTransparency = 1
+    textFrame.Parent = frame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0.5, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0.25, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.Poppins
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Theme.TextColor
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = textFrame
+
+    local descLabel = Instance.new("TextLabel")
+    descLabel.Size = UDim2.new(1, -10, 0.5, 0)
+    descLabel.Position = UDim2.new(0, 10, 0.7, 0)
+    descLabel.AnchorPoint = Vector2.new(0, 0.5)
+    descLabel.BackgroundTransparency = 1
+    descLabel.Font = Enum.Font.Poppins
+    descLabel.Text = description
+    descLabel.TextColor3 = Theme.MutedTextColor
+    descLabel.TextSize = 12
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.Parent = textFrame
+
+    local switch = Instance.new("TextButton")
+    switch.Size = UDim2.new(0, 40, 0, 20)
+    switch.Position = UDim2.new(1, -30, 0.5, 0)
+    switch.AnchorPoint = Vector2.new(0.5, 0.5)
+    switch.BackgroundColor3 = enabled and Theme.AccentColor or Theme.BorderColor
+    switch.Text = ""
+    Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+    switch.Parent = frame
+    
+    local nub = Instance.new("Frame")
+    nub.Size = UDim2.new(0, 14, 0, 14)
+    nub.Position = enabled and UDim2.new(1, -3, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
+    nub.AnchorPoint = Vector2.new(enabled and 1 or 0, 0.5)
+    nub.BackgroundColor3 = Theme.TextColor
+    Instance.new("UICorner", nub).CornerRadius = UDim.new(1, 0)
+    nub.Parent = switch
+    
+    local state = enabled
+    switch.MouseButton1Click:Connect(function()
+        state = not state
+        local nubPos = state and UDim2.new(1, -3, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
+        local bgColor = state and Theme.AccentColor or Theme.BorderColor
+        CreateTween(nub, {Position = nubPos}, 0.2):Play()
+        CreateTween(switch, {BackgroundColor3 = bgColor}, 0.2):Play()
+        
+        -- AQUI VOCÊ COLOCA A FUNÇÃO DO SEU MOD
+        -- Exemplo: getgenv().AntiTrap = state
+        print(title .. " foi " .. (state and "ativado" or "desativado"))
+    end)
+end
+
+-- Função para criar um Botão de Ação
+local function CreateButton(parent, text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 35)
+    button.BackgroundColor3 = Theme.AccentColor
+    button.Font = Enum.Font.Poppins
+    button.Text = text
+    button.TextColor3 = Theme.TextColor
+    button.TextSize = 14
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+    button.Parent = parent
+    
+    button.MouseButton1Click:Connect(function()
+        -- AQUI VOCÊ COLOCA A FUNÇÃO DO SEU MOD
+        if callback then callback() end
+        print(text .. " foi pressionado")
+    end)
+end
+
+-- Criar as categorias e seu conteúdo
+local mainContent = CreateCategory("Main", IconIDs.Main, 1)
+CreateToggle(mainContent, "Anti Trap", "Remove a trap hitbox", true)
+CreateButton(mainContent, "Boost Speed", function() print("Velocidade aumentada!") end)
+CreateButton(mainContent, "AntiSteal (OP)", function() print("AntiSteal ativado!") end)
+
+local visualContent = CreateCategory("Visual", IconIDs.Visual, 2)
+CreateToggle(visualContent, "ESP Player", "Mostra jogadores através das paredes", false)
+
+local shopContent = CreateCategory("Shop", IconIDs.Shop, 3)
+CreateToggle(shopContent, "Auto Buy Items", "Compra itens automaticamente", false)
+
+local randomContent = CreateCategory("Random Features", IconIDs.Random, 4)
+local creditContent = CreateCategory("Credit", IconIDs.Credit, 5)
+Instance.new("TextLabel", creditContent).Text = "Feito por [Seu Nome]" -- Adicione seu crédito aqui
+
+-- // CONEXÕES DE EVENTOS //
+CloseBtn.MouseButton1Click:Connect(function()
+    AnimateOut(MenuContainer, 0.3, function() ScreenGui:Destroy() end)
+end)
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainMenu.Visible = false
+        BallIcon.Visible = true
+        CreateTween(MenuContainer, {Size = UDim2.new(0, 64, 0, 64)}, 0.4):Play()
+    else
+        BallIcon.Visible = false
+        MainMenu.Visible = true
+        local targetSize = ModMenuBody.Visible and UDim2.new(0, 500, 0, 350) or UDim2.new(0, 360, 0, 250)
+        CreateTween(MenuContainer, {Size = targetSize}, 0.4):Play()
+    end
+end)
+
+OpenModMenuBtn.MouseButton1Click:Connect(function()
+    HomeBody.Visible = false
+    ModMenuBody.Visible = true
+    BackBtn.Visible = true
+    Title.Position = UDim2.new(0.5, 0, 0.5, 0) -- Centraliza o título
+    CreateTween(MenuContainer, {Size = UDim2.new(0, 500, 0, 350)}, 0.3):Play()
+    SwitchCategory("Main") -- Abre a primeira categoria por padrão
+end)
+
+BackBtn.MouseButton1Click:Connect(function()
+    ModMenuBody.Visible = false
+    HomeBody.Visible = true
+    BackBtn.Visible = false
+    Title.Position = UDim2.new(0.5, 0, 0.5, 0)
+    CreateTween(MenuContainer, {Size = UDim2.new(0, 360, 0, 250)}, 0.3):Play()
+end)
+
+-- Conectar botões de navegação
+for name, data in pairs(Categories) do
+    data.Button.MouseButton1Click:C
