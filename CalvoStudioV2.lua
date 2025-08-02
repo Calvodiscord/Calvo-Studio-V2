@@ -1,7 +1,7 @@
 --[[
-    Script: Calvo Studio (V4)
+    Script: Calvo Studio (V5)
     Autor: Recriado e aprimorado com base na solicitação
-    Descrição: GUI com sliders de velocidade, seleção de jogadores e funções de Kill/Kick.
+    Descrição: GUI com painel de carregamento corrigido e menor, sliders de velocidade, e mods de jogador.
 ]]
 
 --==================================================================================--
@@ -29,31 +29,46 @@ local customWalkSpeed = 75
 local flySpeed = 50
 
 --==================================================================================--
---||                                TELA DE CARREGAMENTO                            ||--
+--||                                TELA DE CARREGAMENTO (CORRIGIDA)                ||--
 --==================================================================================--
 
--- (O código da tela de carregamento permanece o mesmo da V3, foi omitido aqui para economizar espaço, mas está no código final)
 local loadingScreenGui = Instance.new("ScreenGui", playerGui)
 loadingScreenGui.Name = "LoadingScreenGUI"
 loadingScreenGui.ResetOnSpawn = false
 loadingScreenGui.DisplayOrder = 1000
+
+-- PAINEL DE CARREGAMENTO MENOR E CENTRALIZADO
 local loadingBackground = Instance.new("CanvasGroup", loadingScreenGui)
 loadingBackground.Name = "Background"
-loadingBackground.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-loadingBackground.Size = UDim2.new(1, 0, 1, 0)
+loadingBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+loadingBackground.BorderColor3 = Color3.fromRGB(20, 20, 25)
+loadingBackground.BorderSizePixel = 2
+loadingBackground.Size = UDim2.new(0, 300, 0, 120) -- Tamanho menor
+loadingBackground.Position = UDim2.new(0.5, 0, 0.5, 0) -- Posição centralizada
+loadingBackground.AnchorPoint = Vector2.new(0.5, 0.5)
+Instance.new("UICorner", loadingBackground).CornerRadius = UDim.new(0, 12)
+
+-- Título ajustado para o novo painel
 local loadingTitle = Instance.new("TextLabel", loadingBackground)
-loadingTitle.Font = Enum.Font.GothamSemibold; loadingTitle.Text = "Calvo Studio"; loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255); loadingTitle.TextSize = 52; loadingTitle.BackgroundTransparency = 1; loadingTitle.Size = UDim2.new(1, 0, 0.2, 0); loadingTitle.Position = UDim2.new(0.5, 0, 0.35, 0); loadingTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingTitle.Font = Enum.Font.GothamSemibold; loadingTitle.Text = "Calvo Studio"; loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255); loadingTitle.TextSize = 24; loadingTitle.BackgroundTransparency = 1; loadingTitle.Size = UDim2.new(1, 0, 0, 40); loadingTitle.Position = UDim2.new(0.5, 0, 0, 0); loadingTitle.AnchorPoint = Vector2.new(0.5, 0)
+
+-- Barra de progresso ajustada
 local progressBarBackground = Instance.new("Frame", loadingBackground)
-progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50); progressBarBackground.Size = UDim2.new(0.5, 0, 0, 20); progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0); progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5); Instance.new("UICorner", progressBarBackground).CornerRadius = UDim.new(1, 0)
+progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50); progressBarBackground.Size = UDim2.new(0.8, 0, 0, 15); progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0); progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5); Instance.new("UICorner", progressBarBackground).CornerRadius = UDim.new(1, 0)
+
+-- Barra de preenchimento
 local progressBarFill = Instance.new("Frame", progressBarBackground)
 progressBarFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218); progressBarFill.Size = UDim2.new(0, 0, 1, 0); Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
+
+-- Texto de status ajustado
 local loadingText = Instance.new("TextLabel", loadingBackground)
-loadingText.Font = Enum.Font.Gotham; loadingText.Text = "Carregando..."; loadingText.TextColor3 = Color3.fromRGB(180, 180, 180); loadingText.TextSize = 18; loadingText.BackgroundTransparency = 1; loadingText.Size = UDim2.new(1, 0, 0, 30); loadingText.Position = UDim2.new(0.5, 0, 0.5, 30); loadingText.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingText.Font = Enum.Font.Gotham; loadingText.Text = "Carregando..."; loadingText.TextColor3 = Color3.fromRGB(180, 180, 180); loadingText.TextSize = 14; loadingText.BackgroundTransparency = 1; loadingText.Size = UDim2.new(1, 0, 0, 20); loadingText.Position = UDim2.new(0.5, 0, 1, -15); loadingText.AnchorPoint = Vector2.new(0.5, 1)
 
 
 --==================================================================================--
 --||                                   MENU PRINCIPAL                               ||--
 --==================================================================================--
+-- O código do Menu Principal permanece o mesmo da versão anterior, apenas o incluí aqui para ser completo.
 
 local mainGui = Instance.new("ScreenGui", playerGui)
 mainGui.Name = "CalvoStudioGUI"
@@ -178,7 +193,7 @@ local kickButton = createButton(buttonContainer, "Kicka do Servidor", UDim2.new(
 createButton(buttonContainer, "Atualizar Lista", UDim2.new(), 3)
 createButton(buttonContainer, "Voltar", UDim2.new(), 4).MouseButton1Click:Connect(function() playerModsPage.Visible = false; mainPage.Visible = true end)
 
--- LÓGICA
+-- LÓGICA GERAL
 local function populatePlayerList()
     playerListFrame:ClearAllChildren()
     Instance.new("UIListLayout", playerListFrame).Padding = UDim.new(0, 5) -- Re-add layout
@@ -188,20 +203,22 @@ local function populatePlayerList()
         clone.PlayerObject = player
         clone.Name = player.Name
         clone.Parent = playerListFrame
-        clone.check.Text = ""
-        clone.check.selected = false
-        clone.check.MouseButton1Click:Connect(function()
-            clone.check.selected = not clone.check.selected
-            clone.check.Text = clone.check.selected and "X" or ""
+        local check = clone:FindFirstChild("TextButton")
+        local nameLabel = clone:FindFirstChild("TextLabel")
+        check.Text = ""
+        check.selected = false
+        check.MouseButton1Click:Connect(function()
+            check.selected = not check.selected
+            check.Text = check.selected and "X" or ""
         end)
-        clone.name.Text = player.Name
+        nameLabel.Text = player.Name
     end
 end
 
 function getSelectedPlayers()
     local selected = {}
     for _, item in pairs(playerListFrame:GetChildren()) do
-        if item:IsA("Frame") and item.check.selected then
+        if item:IsA("Frame") and item:FindFirstChild("TextButton").selected then
             table.insert(selected, item.PlayerObject)
         end
     end
@@ -267,15 +284,32 @@ speedButton.Activated:Connect(function()
     humanoid.WalkSpeed = humanoid.WalkSpeed == originalWalkSpeed and customWalkSpeed or originalWalkSpeed
 end)
 
--- INICIAR
+--==================================================================================--
+--||                                LÓGICA DE INÍCIO (CORRIGIDA)                      ||--
+--==================================================================================--
+
 local function StartLoading()
-    local tween = TweenService:Create(progressBarFill, TweenInfo.new(2.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
-    tween:Play(); tween.Completed:Wait()
-    loadingText.Text = "Pronto!"
-    task.wait(0.5)
-    local fadeOut = TweenService:Create(loadingBackground, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
-    fadeOut:Play(); fadeOut.Completed:Wait()
-    loadingScreenGui:Destroy()
-    mainGui.Enabled = true
+    -- Define as animações
+    local progressBarTween = TweenService:Create(progressBarFill, TweenInfo.new(2.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
+    local fadeOutTween = TweenService:Create(loadingBackground, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
+
+    -- Quando a animação de fade out terminar, destrói a tela de carregamento e ativa o menu
+    fadeOutTween.Completed:Connect(function()
+        loadingScreenGui:Destroy()
+        mainGui.Enabled = true
+        print("Calvo Studio GUI carregado com sucesso!")
+    end)
+
+    -- Quando a barra de progresso encher, muda o texto e inicia o fade out
+    progressBarTween.Completed:Connect(function()
+        loadingText.Text = "Pronto!"
+        task.wait(0.2)
+        fadeOutTween:Play()
+    end)
+    
+    -- Inicia a primeira animação (barra de progresso)
+    progressBarTween:Play()
 end
+
+-- Inicia todo o processo
 StartLoading()
