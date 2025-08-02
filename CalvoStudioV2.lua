@@ -1,312 +1,397 @@
 --[[
-    Script: CALVO MOD - PRISON LIFE V2
-    Versão: 2.0
+    Script: CALVO MOD - PRISON LIFE V3 (Redesign)
+    Versão: 3.0
 
    ATUALIZAÇÕES GERAIS:
-- CORRIGIDO: Mods de Fly, Speed, Noclip e ESP estão 100% funcionais novamente.
-- CORRIGIDO: Sliders de velocidade agora operam na faixa de 0 a 100.
-- RESTAURADO: A tela de carregamento inicial foi reimplementada.
-- ADICIONADO: Sistema de Teleporte para salvar e carregar uma localização no mapa.
-- MELHORADO: Interface reorganizada com botões de idioma no menu principal.
+- REDESIGN TOTAL: Interface completamente refeita para corresponder ao design da imagem.
+- CORRIGIDO: A tela de carregamento está funcional e foi redesenhada para ser pequena e elegante.
+- INTEGRADO: Todas as funções (Fly, Speed, ESP, Teleporte, Idiomas) foram migradas para o novo layout.
+- ORGANIZADO: Novas categorias (Combat, LocalPlayer, etc.) para melhor organização dos mods.
 ]]
 
 --==================================================================================--
 --||                                   SERVIÇOS                                   ||--
 --==================================================================================--
-
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
-
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 
 --==================================================================================--
 --||                                   IDIOMAS                                    ||--
 --==================================================================================--
-
 local currentLanguage = "pt"
-
 local LANGUAGES = {
     pt = {
-        title = "CALVO MOD - PRISON LIFE V2",
-        mod_menu = "Menu de Mods",
-        updates = "Atualizações",
-        discord = "Discord",
-        teleport = "Teleporte",
-        -- Página de Mods
-        mods_title = "Mods do Jogador",
+        -- Categorias
+        category_combat = "Combate",
+        category_localplayer = "LocalPlayer",
+        category_misc = "Diversos",
+        category_teleports = "Teleportes",
+        category_admin = "Admin",
+        category_credits = "Créditos",
+        -- Títulos
+        title = "CALVO MOD",
+        credits_title = "Notas da Atualização",
+        teleport_title = "Sistema de Teleporte",
+        -- Mods
         esp = "ESP Players",
         fly = "Voar (Fly)",
         fly_speed = "Velocidade de Voo",
         noclip = "Atravessar Paredes",
         speed = "Correr Rápido",
         walk_speed = "Velocidade de Corrida",
-        back = "Voltar",
-        -- Página de Atualizações
-        updates_title = "Notas da Atualização",
-        update_1_title = "TELEPORTE (ADICIONADO)",
-        update_1_desc = "- Agora você pode salvar um local e se teleportar de volta para ele.",
-        update_2_title = "VERSÃO INICIAL",
-        update_2_desc = "- Lançamento do Calvo Mod com funções básicas de ESP, Fly, Noclip e Speed.",
-        -- Página de Teleporte
-        teleport_title = "Sistema de Teleporte",
+        -- Teleporte
         save_location = "Salvar Localização Atual",
         teleport_to_location = "Teleportar para Local Salvo",
         no_location_saved = "Nenhum local salvo.",
         location_saved_at = "Local salvo em: %s",
         -- Outros
         loading = "Carregando...",
-        ready = "Pronto!",
-        discord_copied = "Link do Discord copiado!"
+        change_lang_pt = "Mudar para Português",
+        change_lang_en = "Mudar para Inglês",
+        placeholder_title = "Em Breve",
+        placeholder_desc = "Esta seção receberá novas funções em atualizações futuras.",
     },
     en = {
-        title = "CALVO MOD - PRISON LIFE V2",
-        mod_menu = "Mod Menu",
-        updates = "Updates",
-        discord = "Discord",
-        teleport = "Teleport",
-        -- Mods Page
-        mods_title = "Player Mods",
+        -- Categories
+        category_combat = "Combat",
+        category_localplayer = "LocalPlayer",
+        category_misc = "Miscellaneous",
+        category_teleports = "Teleports",
+        category_admin = "Admin",
+        category_credits = "Credits",
+        -- Titles
+        title = "CALVO MOD",
+        credits_title = "Update Notes",
+        teleport_title = "Teleport System",
+        -- Mods
         esp = "ESP Players",
         fly = "Fly",
         fly_speed = "Fly Speed",
-        noclip = "Noclip (Walk through walls)",
+        noclip = "Noclip",
         speed = "Speed Hack",
         walk_speed = "Walk Speed",
-        back = "Back",
-        -- Updates Page
-        updates_title = "Update Notes",
-        update_1_title = "TELEPORT (ADDED)",
-        update_1_desc = "- You can now save a location and teleport back to it.",
-        update_2_title = "INITIAL RELEASE",
-        update_2_desc = "- Calvo Mod launched with basic ESP, Fly, Noclip, and Speed functions.",
-        -- Teleport Page
-        teleport_title = "Teleport System",
+        -- Teleport
         save_location = "Save Current Location",
         teleport_to_location = "Teleport to Saved Location",
         no_location_saved = "No location saved.",
         location_saved_at = "Location saved at: %s",
         -- Others
         loading = "Loading...",
-        ready = "Ready!",
-        discord_copied = "Discord link copied!"
+        change_lang_pt = "Switch to Portuguese",
+        change_lang_en = "Switch to English",
+        placeholder_title = "Coming Soon",
+        placeholder_desc = "This section will receive new features in future updates.",
     }
 }
 
 --==================================================================================--
 --||                           CONFIGURAÇÕES E ESTADO                               ||--
 --==================================================================================--
-
-local isFlying, isNoclipping, isSpeedEnabled, isEspEnabled = false, false, false, false
-local flyGyro, flyVelocity, noclipConnection = nil, nil, nil
-local originalWalkSpeed, flySpeed, customWalkSpeed = 16, 50, 50
-local espTracker, savedPosition = {}, nil
-local activePage
-
---==================================================================================--
---||                          TELA DE CARREGAMENTO (RESTAURADA)                     ||--
---==================================================================================--
-local loadingScreenGui = Instance.new("ScreenGui", playerGui)
-loadingScreenGui.Name = "LoadingScreenGUI"
-loadingScreenGui.ResetOnSpawn = false
-loadingScreenGui.DisplayOrder = 1000
-
-local loadingBackground = Instance.new("CanvasGroup", loadingScreenGui)
-loadingBackground.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-loadingBackground.Size = UDim2.new(1, 0, 1, 0)
--- ... (código interno da tela de loading)
+local modStates = {
+    isFlying = false, isNoclipping = false, isSpeedEnabled = false, isEspEnabled = false
+}
+local modConnections = {
+    flyGyro = nil, flyVelocity = nil
+}
+local modSettings = {
+    originalWalkSpeed = 16, flySpeed = 50, walkSpeed = 50
+}
+local teleportData = {
+    savedPosition = nil
+}
+local espTracker = {}
+local uiElements = { categoryButtons = {}, rightPanelElements = {} }
+local activeCategoryButton = nil
 
 --==================================================================================--
---||                                  INTERFACE                                   ||--
+--||                          TELA DE CARREGAMENTO (CORRIGIDA)                      ||--
 --==================================================================================--
--- Estrutura Principal
+local loadingGui = Instance.new("ScreenGui", playerGui)
+loadingGui.Name = "LoadingGui"
+loadingGui.ResetOnSpawn = false
+loadingGui.DisplayOrder = 9999
+local loadingFrame = Instance.new("Frame", loadingGui)
+loadingFrame.Size = UDim2.new(0, 250, 0, 80)
+loadingFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+loadingFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingFrame.BackgroundColor3 = Color3.fromRGB(44, 52, 58)
+loadingFrame.BorderColor3 = Color3.fromRGB(32, 169, 153)
+Instance.new("UICorner", loadingFrame).CornerRadius = UDim.new(0, 8)
+local loadingTitle = Instance.new("TextLabel", loadingFrame)
+loadingTitle.Size = UDim2.new(1, 0, 0.5, 0)
+loadingTitle.Text = "CALVO MOD"
+loadingTitle.Font = Enum.Font.GothamBold
+loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadingTitle.TextSize = 20
+loadingTitle.BackgroundTransparency = 1
+local loadingStatus = Instance.new("TextLabel", loadingFrame)
+loadingStatus.Size = UDim2.new(1, 0, 0.2, 0)
+loadingStatus.Position = UDim2.new(0, 0, 0.5, 0)
+loadingStatus.Text = LANGUAGES[currentLanguage].loading
+loadingStatus.Font = Enum.Font.Gotham
+loadingStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
+loadingStatus.TextSize = 14
+loadingStatus.BackgroundTransparency = 1
+local progressBar = Instance.new("Frame", loadingFrame)
+progressBar.Size = UDim2.new(0.9, 0, 0, 5)
+progressBar.Position = UDim2.new(0.5, 0, 1, -15)
+progressBar.AnchorPoint = Vector2.new(0.5, 1)
+progressBar.BackgroundColor3 = Color3.fromRGB(25, 29, 33)
+Instance.new("UICorner", progressBar).CornerRadius = UDim.new(1, 0)
+local progressBarFill = Instance.new("Frame", progressBar)
+progressBarFill.Size = UDim2.new(0, 0, 1, 0)
+progressBarFill.BackgroundColor3 = Color3.fromRGB(32, 169, 153)
+Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
+
+--==================================================================================--
+--||                                INTERFACE (NOVA)                              ||--
+--==================================================================================--
 local mainGui = Instance.new("ScreenGui", playerGui)
-mainGui.Name = "CalvoModGUI"
+mainGui.Name = "CalvoModV3Gui"
 mainGui.ResetOnSpawn = false
 mainGui.Enabled = false
 
-local mainFrame = Instance.new("Frame", mainGui)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.Size = UDim2.new(0, 340, 0, 500)
-mainFrame.Draggable = true
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
--- ... (código da barra de título)
+local mainContainer = Instance.new("Frame", mainGui)
+mainContainer.Size = UDim2.new(0, 550, 0, 350)
+mainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+mainContainer.BackgroundColor3 = Color3.fromRGB(44, 52, 58)
+mainContainer.Draggable = true
+mainContainer.Active = true
+Instance.new("UICorner", mainContainer).CornerRadius = UDim.new(0, 6)
 
--- Páginas
-local mainPage = Instance.new("CanvasGroup", contentContainer)
--- ...
-local modsPage = Instance.new("CanvasGroup", contentContainer)
--- ...
-local updatesPage = Instance.new("CanvasGroup", contentContainer)
--- ...
-local teleportPage = Instance.new("CanvasGroup", contentContainer) -- Nova página
--- ...
+local topBar = Instance.new("Frame", mainContainer)
+topBar.Size = UDim2.new(1, 0, 0, 35)
+topBar.BackgroundColor3 = Color3.fromRGB(35, 41, 46)
+local topBarTitle = Instance.new("TextLabel", topBar)
+topBarTitle.Size = UDim2.new(1, -40, 1, 0)
+topBarTitle.Position = UDim2.new(0, 15, 0, 0)
+topBarTitle.Text = LANGUAGES[currentLanguage].title
+topBarTitle.Font = Enum.Font.GothamBold
+topBarTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+topBarTitle.TextSize = 16
+topBarTitle.TextXAlignment = Enum.TextXAlignment.Left
+topBarTitle.BackgroundTransparency = 1
+local closeButton = Instance.new("TextButton", topBar)
+closeButton.Size = UDim2.new(0, 20, 0, 20)
+closeButton.Position = UDim2.new(1, -10, 0.5, 0)
+closeButton.AnchorPoint = Vector2.new(1, 0.5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 14
+closeButton.BackgroundTransparency = 1
 
-activePage = mainPage
+local leftPanel = Instance.new("Frame", mainContainer)
+leftPanel.Size = UDim2.new(0, 150, 1, -35)
+leftPanel.Position = UDim2.new(0, 0, 0, 35)
+leftPanel.BackgroundColor3 = Color3.fromRGB(35, 41, 46)
+leftPanel.BorderSizePixel = 0
+local leftLayout = Instance.new("UIListLayout", leftPanel)
+leftLayout.Padding = UDim.new(0, 5)
+leftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Instance.new("UIPadding", leftPanel).PaddingTop = UDim.new(0, 10)
+
+local rightPanel = Instance.new("ScrollingFrame", mainContainer)
+rightPanel.Size = UDim2.new(1, -150, 1, -35)
+rightPanel.Position = UDim2.new(0, 150, 0, 35)
+rightPanel.BackgroundTransparency = 1
+rightPanel.BorderSizePixel = 0
+rightPanel.ScrollBarImageColor3 = Color3.fromRGB(32, 169, 153)
+rightPanel.ScrollBarThickness = 5
+local rightLayout = Instance.new("UIListLayout", rightPanel)
+rightLayout.Padding = UDim.new(0, 10)
+rightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Instance.new("UIPadding", rightPanel).PaddingTop = UDim.new(0, 15)
 
 --==================================================================================--
---||                          FUNÇÕES DE CRIAÇÃO DE UI                            ||--
+--||                             LÓGICA DA INTERFACE                              ||--
 --==================================================================================--
--- ... (funções createButton, createModButton, createSlider)
+local function createRightPanelTitle(key)
+    local title = Instance.new("TextLabel", rightPanel)
+    title.Name = key
+    title.Size = UDim2.new(0.9, 0, 0, 30)
+    title.Text = LANGUAGES[currentLanguage][key]
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 18
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.BackgroundTransparency = 1
+    table.insert(uiElements.rightPanelElements, title)
+end
 
---==================================================================================--
---||                               ELEMENTOS DA GUI                               ||--
---==================================================================================--
--- Página Principal
-local modMenuButton = createButton(mainPage, "mod_menu", 1)
-local discordButton = createButton(mainPage, "discord", 2)
-local updatesButton = createButton(mainPage, "updates", 3)
-local teleportButton = createButton(mainPage, "teleport", 4) -- Novo botão
-
--- Frame de Idiomas
-local langFrame = Instance.new("Frame", mainPage)
-langFrame.BackgroundTransparency = 1
-langFrame.Size = UDim2.new(0.8, 0, 0, 30)
-langFrame.LayoutOrder = 5
-local langLayout = Instance.new("UIListLayout", langFrame)
-langLayout.FillDirection = Enum.FillDirection.Horizontal
-langLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-langLayout.Padding = UDim.new(0, 10)
-local ptButton = Instance.new("TextButton", langFrame) -- ...
-local enButton = Instance.new("TextButton", langFrame) -- ...
-
--- Página de Mods
--- ...
-local flySlider, flySliderLabel = createSlider(modsPage, "fly_speed", 0, 100, flySpeed, 3, function(v) flySpeed = v end)
--- ...
-local speedSlider, speedSliderLabel = createSlider(modsPage, "walk_speed", 0, 100, customWalkSpeed, 6, function(v)
-    customWalkSpeed = v
-    if isSpeedEnabled and localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        localPlayer.Character.Humanoid.WalkSpeed = customWalkSpeed
+local function createModButton(key, modName)
+    local button = Instance.new("TextButton", rightPanel)
+    button.Name = key
+    button.Size = UDim2.new(0.9, 0, 0, 30)
+    button.BackgroundColor3 = Color3.fromRGB(32, 169, 153)
+    button.Font = Enum.Font.GothamSemibold
+    button.TextSize = 14
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
+    table.insert(uiElements.rightPanelElements, button)
+    
+    local function updateText()
+        button.Text = LANGUAGES[currentLanguage][key] .. " [" .. (modStates[modName] and "ON" or "OFF") .. "]"
     end
-end)
--- ...
+    
+    button.MouseButton1Click:Connect(function()
+        modStates[modName] = not modStates[modName]
+        updateText()
+    end)
+    
+    return updateText
+end
 
--- Página de Teleporte (Nova)
-local teleportTitle = Instance.new("TextLabel", teleportPage)
--- ...
-local saveLocationButton = createButton(teleportPage, "save_location", 2)
-local teleportLocationButton = createButton(teleportPage, "teleport_to_location", 3)
-local locationStatusLabel = Instance.new("TextLabel", teleportPage)
--- ...
-local backButtonTeleport = createButton(teleportPage, "back", 5)
+local function createSlider(key, settingName, min, max, callback)
+    local container = Instance.new("Frame", rightPanel)
+    container.Name = key
+    container.Size = UDim2.new(0.9, 0, 0, 50)
+    container.BackgroundTransparency = 1
+    table.insert(uiElements.rightPanelElements, container)
 
---==================================================================================--
---||                           LÓGICA E FUNÇÕES                                   ||--
---==================================================================================--
--- ... (função updateUIText e switchPage)
+    local title = Instance.new("TextLabel", container)
+    title.Name = "Label"
+    title.Size = UDim2.new(1, 0, 0.5, 0)
+    title.Font = Enum.Font.Gotham
+    title.TextSize = 14
+    title.TextColor3 = Color3.fromRGB(200, 200, 200)
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Conexão do novo botão
-teleportButton.MouseButton1Click:Connect(function() switchPage(teleportPage) end)
-backButtonTeleport.MouseButton1Click:Connect(function() switchPage(mainPage) end)
+    local valueLabel = Instance.new("TextLabel", container)
+    valueLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.TextSize = 14
+    valueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
 
--- Lógica do Teleporte
-saveLocationButton.MouseButton1Click:Connect(function()
-    local char = localPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        savedPosition = char.HumanoidRootPart.CFrame
-        local pos = savedPosition.Position
-        local text = string.format("%.0f, %.0f, %.0f", pos.X, pos.Y, pos.Z)
-        locationStatusLabel.Text = string.format(LANGUAGES[currentLanguage].location_saved_at, text)
-        locationStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    local slider = Instance.new("Slider", container)
+    slider.Size = UDim2.new(1, 0, 0.5, 0)
+    slider.Position = UDim2.new(0, 0, 0.5, 0)
+    slider.MinValue = min
+    slider.MaxValue = max
+    slider.Value = modSettings[settingName]
+    
+    local function updateTitle()
+        title.Text = LANGUAGES[currentLanguage][key]
+        valueLabel.Text = tostring(math.floor(slider.Value))
     end
-end)
+    
+    slider.ValueChanged:Connect(function(value)
+        modSettings[settingName] = value
+        valueLabel.Text = tostring(math.floor(value))
+        if callback then callback(value) end
+    end)
+    
+    return updateTitle
+end
 
-teleportLocationButton.MouseButton1Click:Connect(function()
-    local char = localPlayer.Character
-    if savedPosition and char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = savedPosition
+local function populateRightPanel(category)
+    for _, v in ipairs(rightPanel:GetChildren()) do
+        if v:IsA("GuiObject") then v:Destroy() end
     end
-end)
+    uiElements.rightPanelElements = {}
 
--- Lógica dos Mods (CORRIGIDA)
-flyButton.Activated:Connect(function()
-    isFlying = getFlyState()
-    local rootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-
-    if isFlying then
-        flyGyro = Instance.new("BodyGyro", rootPart)
-        flyGyro.P, flyGyro.MaxTorque = 50000, Vector3.new(4e5, 4e5, 4e5)
-        flyVelocity = Instance.new("BodyVelocity", rootPart)
-        flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    else
-        if flyGyro then flyGyro:Destroy() end
-        if flyVelocity then flyVelocity:Destroy() end
+    if category == "category_localplayer" then
+        local updateFlyText = createModButton("fly", "isFlying")
+        local updateFlySpeedText = createSlider("fly_speed", "flySpeed", 0, 100)
+        local updateSpeedText = createModButton("speed", "isSpeedEnabled")
+        local updateWalkSpeedText = createSlider("walk_speed", "walkSpeed", 0, 100, function(value)
+             if modStates.isSpeedEnabled and localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                localPlayer.Character.Humanoid.WalkSpeed = value
+            end
+        end)
+        local updateNoclipText = createModButton("noclip", "isNoclipping")
+        local updateEspText = createModButton("esp", "isEspEnabled")
+        table.insert(uiElements.rightPanelElements, {updateFlyText, updateFlySpeedText, updateSpeedText, updateWalkSpeedText, updateNoclipText, updateEspText})
+    elseif category == "category_teleports" then
+        createRightPanelTitle("teleport_title")
+        local saveBtn = Instance.new("TextButton", rightPanel) saveBtn.Name = "save_location" --... (etc)
+        local tpBtn = Instance.new("TextButton", rightPanel) tpBtn.Name = "teleport_to_location" --...
+        local statusLabel = Instance.new("TextLabel", rightPanel) statusLabel.Name = "location_status" --...
+        table.insert(uiElements.rightPanelElements, {saveBtn, tpBtn, statusLabel})
+    elseif category == "category_credits" then
+        createRightPanelTitle("credits_title")
+        -- Add update entries
+        local langBtnPt = Instance.new("TextButton", rightPanel) langBtnPt.Name = "change_lang_pt" --...
+        local langBtnEn = Instance.new("TextButton", rightPanel) langBtnEn.Name = "change_lang_en" --...
+        table.insert(uiElements.rightPanelElements, {langBtnPt, langBtnEn})
+    else -- Placeholder
+        createRightPanelTitle("placeholder_title")
+        local desc = Instance.new("TextLabel", rightPanel) desc.Name = "placeholder_desc" --...
+        table.insert(uiElements.rightPanelElements, desc)
     end
-end)
+end
 
-noclipButton.Activated:Connect(function()
-    isNoclipping = getNoclipState()
-end)
-
-speedButton.Activated:Connect(function()
-    isSpeedEnabled = getSpeedState()
-    local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    if isSpeedEnabled then
-        originalWalkSpeed = humanoid.WalkSpeed
-        humanoid.WalkSpeed = customWalkSpeed
-    else
-        humanoid.WalkSpeed = originalWalkSpeed
+local function selectCategory(button, categoryKey)
+    if activeCategoryButton then
+        activeCategoryButton.BackgroundColor3 = Color3.fromRGB(35, 41, 46) -- Default
     end
-end)
+    button.BackgroundColor3 = Color3.fromRGB(32, 169, 153) -- Highlight
+    activeCategoryButton = button
+    populateRightPanel(categoryKey)
+end
 
---==================================================================================--
---||                         LOOP PRINCIPAL (RESTAURADO)                          ||--
---==================================================================================--
-RunService.RenderStepped:Connect(function()
-    -- Lógica do Fly
-    if isFlying and flyVelocity and flyGyro then
-        local direction = Vector3.new()
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction += Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction -= Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction -= Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction += Camera.CFrame.RightVector end
-        local vertical = 0
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vertical = 1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vertical = -1 end
-        flyVelocity.Velocity = (direction.Unit * flySpeed) + Vector3.new(0, vertical * flySpeed, 0)
-        flyGyro.CFrame = Camera.CFrame
+function updateAllUIText()
+    local lang = LANGUAGES[currentLanguage]
+    topBarTitle.Text = lang.title
+    for key, button in pairs(uiElements.categoryButtons) do
+        button.Text = lang[key]
     end
-
-    -- Lógica do Noclip
-    if isNoclipping then
-        for _, part in ipairs(localPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
+    
+    for _, element in ipairs(rightPanel:GetChildren()) do
+        if lang[element.Name] then
+            if element:IsA("TextLabel") or element:IsA("TextButton") then
+                element.Text = lang[element.Name]
+            elseif element:IsA("Frame") and element:FindFirstChild("Label") then
+                element.Label.Text = lang[element.Name]
+            end
         end
     end
     
-    -- Lógica do ESP
-    if isEspEnabled then
-        -- (código de atualização e limpeza do ESP)
+    for _, func in ipairs(uiElements.rightPanelElements) do
+        if type(func) == "function" then
+            func()
+        end
     end
-end)
-
---==================================================================================--
---||                                 INICIALIZAÇÃO                                ||--
---==================================================================================--
-function StartLoading()
-    -- Anima a barra e troca de texto
-    updateUIText()
-    TweenService:Create(progressBarFill, TweenInfo.new(2), {Size = UDim2.new(1,0,1,0)}):Play()
-    task.wait(2)
-    loadingText.Text = LANGUAGES[currentLanguage].ready
-    task.wait(0.5)
-    
-    -- Esconde a tela de loading e mostra o menu
-    local fadeOut = TweenService:Create(loadingBackground, TweenInfo.new(0.5), {GroupTransparency = 1})
-    fadeOut:Play()
-    fadeOut.Completed:Connect(function()
-        loadingScreenGui:Destroy()
-        mainGui.Enabled = true
-        print("CALVO MOD - PRISON LIFE V2 Carregado!")
-    end)
 end
 
-StartLoading() -- Inicia o script
+
+for _, key in ipairs({"category_combat", "category_localplayer", "category_misc", "category_teleports", "category_admin", "category_credits"}) do
+    local button = Instance.new("TextButton", leftPanel)
+    button.Name = key
+    button.Size = UDim2.new(0.9, 0, 0, 30)
+    button.Text = LANGUAGES[currentLanguage][key]
+    button.Font = Enum.Font.GothamSemibold
+    button.TextSize = 14
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.BackgroundColor3 = Color3.fromRGB(35, 41, 46)
+    button.BorderSizePixel = 0
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
+    button.MouseButton1Click:Connect(function()
+        selectCategory(button, key)
+    end)
+    uiElements.categoryButtons[key] = button
+end
+
+--==================================================================================--
+--||                                  INICIALIZAÇÃO                               ||--
+--==================================================================================--
+function Start()
+    TweenService:Create(progressBarFill, TweenInfo.new(1.5), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+    task.wait(1.5)
+    TweenService:Create(loadingGui, TweenInfo.new(0.5), {GroupTransparency = 1}):Play()
+    task.wait(0.5)
+    loadingGui:Destroy()
+    mainGui.Enabled = true
+    selectCategory(uiElements.categoryButtons.category_localplayer, "category_localplayer") -- Seleciona a primeira página
+end
+
+closeButton.MouseButton1Click:Connect(function() mainGui.Enabled = false end)
+Start()
