@@ -467,4 +467,93 @@ function createOrUpdateEsp(player)
         background.Size = UDim2.new(1, 0, 1, 0)
         Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
         local nameLabel = Instance.new("TextLabel", background)
-        nameLabel.Name = "Name
+        nameLabel.Name = "NameLabel"
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextSize = 16
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Size = UDim2.new(1, -10, 0, 20)
+        nameLabel.Position = UDim2.new(0.5, 0, 0, 5)
+		nameLabel.AnchorPoint = Vector2.new(0.5, 0)
+        local healthBarBack = Instance.new("Frame", background)
+        healthBarBack.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+        healthBarBack.BorderSizePixel = 0
+        healthBarBack.Size = UDim2.new(1, -10, 0, 8)
+        healthBarBack.Position = UDim2.new(0.5, 0, 0, 30)
+		healthBarBack.AnchorPoint = Vector2.new(0.5, 0)
+        Instance.new("UICorner", healthBarBack).CornerRadius = UDim.new(1, 0)
+        local healthBarFront = Instance.new("Frame", healthBarBack)
+        healthBarFront.Name = "HealthBar"
+        healthBarFront.BackgroundColor3 = Color3.fromRGB(40, 255, 40)
+        healthBarFront.BorderSizePixel = 0
+        healthBarFront.Size = UDim2.new(1, 0, 1, 0)
+        Instance.new("UICorner", healthBarFront).CornerRadius = UDim.new(1, 0)
+		local infoLabel = Instance.new("TextLabel", background)
+		infoLabel.Name = "InfoLabel"
+		infoLabel.Font = Enum.Font.Gotham
+        infoLabel.TextSize = 14
+        infoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+        infoLabel.BackgroundTransparency = 1
+        infoLabel.Size = UDim2.new(1, -10, 0, 20)
+        infoLabel.Position = UDim2.new(0.5, 0, 0, 42)
+		infoLabel.AnchorPoint = Vector2.new(0.5, 0)
+        espTracker[player] = espGui
+    end
+
+    local playerHumanoid = playerChar:FindFirstChildOfClass("Humanoid")
+    if playerHumanoid then
+        local health = math.floor(playerHumanoid.Health)
+        local maxHealth = playerHumanoid.MaxHealth
+        local nameLabel = espGui:FindFirstChild("Background"):FindFirstChild("NameLabel")
+        nameLabel.Text = player.Name
+        local healthBar = espGui:FindFirstChild("Background"):FindFirstChild("HealthBarBack"):FindFirstChild("HealthBar")
+        healthBar.Size = UDim2.new(health / maxHealth, 0, 1, 0)
+        local infoLabel = espGui:FindFirstChild("Background"):FindFirstChild("InfoLabel")
+        local platform = player:FindFirstChild("PlayerScripts") and "🖥️" or "📱" -- CORREÇÃO: Método mais confiável para detecção
+        infoLabel.Text = "Vida: " .. health .. " | " .. platform
+    end
+end
+
+--==================================================================================--
+--||                                 LOOP PRINCIPAL                               ||--
+--==================================================================================--
+
+RunService.RenderStepped:Connect(function()
+    if isFlying then
+		local character = localPlayer.Character
+		if flyVelocity and flyGyro and character then
+			local camera = workspace.CurrentCamera
+			local direction = Vector3.new()
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction += camera.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction -= camera.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction -= camera.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction += camera.CFrame.RightVector end
+			local verticalDirection = 0
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then verticalDirection = 1 end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then verticalDirection = -1 end
+			local combinedDirection = (direction.Unit * Vector3.new(1, 0, 1)).Unit + Vector3.new(0, verticalDirection, 0)
+			flyVelocity.Velocity = combinedDirection.Unit * flySpeed
+			flyGyro.CFrame = camera.CFrame
+		end
+	end
+
+    if isEspEnabled then
+        local currentPlayers = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer then
+                currentPlayers[player] = true
+                if player.Character then createOrUpdateEsp(player) end
+            end
+        end
+        -- CORREÇÃO: Lógica de limpeza mais segura
+        for player, esp in pairs(espTracker) do
+            if not currentPlayers[player] then
+                if esp then esp:Destroy() end
+                espTracker[player] = nil
+            end
+        end
+    end
+end)
+
+-- Inicia todo o processo
+StartLoading()
