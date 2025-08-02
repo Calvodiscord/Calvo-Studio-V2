@@ -1,12 +1,12 @@
 --[[
-    Script: CALVO MOD - PRISON LIFE V3 (Redesign)
-    Versão: 3.0
+    Script: CALVO MOD - PRISON LIFE V3.1 (Correção de Carregamento)
+    Versão: 3.1
 
-   ATUALIZAÇÕES GERAIS:
-- REDESIGN TOTAL: Interface completamente refeita para corresponder ao design da imagem.
-- CORRIGIDO: A tela de carregamento está funcional e foi redesenhada para ser pequena e elegante.
-- INTEGRADO: Todas as funções (Fly, Speed, ESP, Teleporte, Idiomas) foram migradas para o novo layout.
-- ORGANIZADO: Novas categorias (Combat, LocalPlayer, etc.) para melhor organização dos mods.
+   ATUALIZAÇÕES:
+- CORRIGIDO: O loop infinito na tela de carregamento foi resolvido. O script agora avança para o menu principal corretamente.
+- MELHORADO: A lógica de inicialização foi refeita para ser mais estável e garantir a transição suave das animações.
+- DESIGN: Interface moderna e profissional inspirada na imagem de referência.
+- FUNCIONALIDADES: Inclui mods de LocalPlayer, Sistema de Teleporte e de Idiomas (PT/EN).
 ]]
 
 --==================================================================================--
@@ -51,6 +51,7 @@ local LANGUAGES = {
         location_saved_at = "Local salvo em: %s",
         -- Outros
         loading = "Carregando...",
+        ready = "Pronto!",
         change_lang_pt = "Mudar para Português",
         change_lang_en = "Mudar para Inglês",
         placeholder_title = "Em Breve",
@@ -82,6 +83,7 @@ local LANGUAGES = {
         location_saved_at = "Location saved at: %s",
         -- Others
         loading = "Loading...",
+        ready = "Ready!",
         change_lang_pt = "Switch to Portuguese",
         change_lang_en = "Switch to English",
         placeholder_title = "Coming Soon",
@@ -96,7 +98,7 @@ local modStates = {
     isFlying = false, isNoclipping = false, isSpeedEnabled = false, isEspEnabled = false
 }
 local modConnections = {
-    flyGyro = nil, flyVelocity = nil
+    flyGyro = nil, flyVelocity = nil, noclipConnection = nil
 }
 local modSettings = {
     originalWalkSpeed = 16, flySpeed = 50, walkSpeed = 50
@@ -105,16 +107,18 @@ local teleportData = {
     savedPosition = nil
 }
 local espTracker = {}
-local uiElements = { categoryButtons = {}, rightPanelElements = {} }
+local uiElements = { categoryButtons = {}, rightPanelUpdaters = {} }
 local activeCategoryButton = nil
 
 --==================================================================================--
---||                          TELA DE CARREGAMENTO (CORRIGIDA)                      ||--
+--||                          TELA DE CARREGAMENTO                      ||--
 --==================================================================================--
 local loadingGui = Instance.new("ScreenGui", playerGui)
 loadingGui.Name = "LoadingGui"
 loadingGui.ResetOnSpawn = false
 loadingGui.DisplayOrder = 9999
+loadingGui.GroupTransparency = 0 -- Inicia visível
+
 local loadingFrame = Instance.new("Frame", loadingGui)
 loadingFrame.Size = UDim2.new(0, 250, 0, 80)
 loadingFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -122,6 +126,7 @@ loadingFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 loadingFrame.BackgroundColor3 = Color3.fromRGB(44, 52, 58)
 loadingFrame.BorderColor3 = Color3.fromRGB(32, 169, 153)
 Instance.new("UICorner", loadingFrame).CornerRadius = UDim.new(0, 8)
+
 local loadingTitle = Instance.new("TextLabel", loadingFrame)
 loadingTitle.Size = UDim2.new(1, 0, 0.5, 0)
 loadingTitle.Text = "CALVO MOD"
@@ -129,6 +134,7 @@ loadingTitle.Font = Enum.Font.GothamBold
 loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 loadingTitle.TextSize = 20
 loadingTitle.BackgroundTransparency = 1
+
 local loadingStatus = Instance.new("TextLabel", loadingFrame)
 loadingStatus.Size = UDim2.new(1, 0, 0.2, 0)
 loadingStatus.Position = UDim2.new(0, 0, 0.5, 0)
@@ -137,24 +143,26 @@ loadingStatus.Font = Enum.Font.Gotham
 loadingStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
 loadingStatus.TextSize = 14
 loadingStatus.BackgroundTransparency = 1
+
 local progressBar = Instance.new("Frame", loadingFrame)
 progressBar.Size = UDim2.new(0.9, 0, 0, 5)
 progressBar.Position = UDim2.new(0.5, 0, 1, -15)
 progressBar.AnchorPoint = Vector2.new(0.5, 1)
 progressBar.BackgroundColor3 = Color3.fromRGB(25, 29, 33)
 Instance.new("UICorner", progressBar).CornerRadius = UDim.new(1, 0)
+
 local progressBarFill = Instance.new("Frame", progressBar)
 progressBarFill.Size = UDim2.new(0, 0, 1, 0)
 progressBarFill.BackgroundColor3 = Color3.fromRGB(32, 169, 153)
 Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
 
 --==================================================================================--
---||                                INTERFACE (NOVA)                              ||--
+--||                                INTERFACE                                     ||--
 --==================================================================================--
 local mainGui = Instance.new("ScreenGui", playerGui)
 mainGui.Name = "CalvoModV3Gui"
 mainGui.ResetOnSpawn = false
-mainGui.Enabled = false
+mainGui.Enabled = false -- Começa desabilitado
 
 local mainContainer = Instance.new("Frame", mainGui)
 mainContainer.Size = UDim2.new(0, 550, 0, 350)
@@ -168,6 +176,7 @@ Instance.new("UICorner", mainContainer).CornerRadius = UDim.new(0, 6)
 local topBar = Instance.new("Frame", mainContainer)
 topBar.Size = UDim2.new(1, 0, 0, 35)
 topBar.BackgroundColor3 = Color3.fromRGB(35, 41, 46)
+
 local topBarTitle = Instance.new("TextLabel", topBar)
 topBarTitle.Size = UDim2.new(1, -40, 1, 0)
 topBarTitle.Position = UDim2.new(0, 15, 0, 0)
@@ -177,6 +186,7 @@ topBarTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 topBarTitle.TextSize = 16
 topBarTitle.TextXAlignment = Enum.TextXAlignment.Left
 topBarTitle.BackgroundTransparency = 1
+
 local closeButton = Instance.new("TextButton", topBar)
 closeButton.Size = UDim2.new(0, 20, 0, 20)
 closeButton.Position = UDim2.new(1, -10, 0.5, 0)
@@ -212,20 +222,20 @@ Instance.new("UIPadding", rightPanel).PaddingTop = UDim.new(0, 15)
 --==================================================================================--
 --||                             LÓGICA DA INTERFACE                              ||--
 --==================================================================================--
-local function createRightPanelTitle(key)
-    local title = Instance.new("TextLabel", rightPanel)
+local function createRightPanelTitle(parent, key)
+    local title = Instance.new("TextLabel", parent)
     title.Name = key
     title.Size = UDim2.new(0.9, 0, 0, 30)
-    title.Text = LANGUAGES[currentLanguage][key]
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.BackgroundTransparency = 1
-    table.insert(uiElements.rightPanelElements, title)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    return title
 end
 
-local function createModButton(key, modName)
-    local button = Instance.new("TextButton", rightPanel)
+local function createModButton(parent, key, modName)
+    local button = Instance.new("TextButton", parent)
     button.Name = key
     button.Size = UDim2.new(0.9, 0, 0, 30)
     button.BackgroundColor3 = Color3.fromRGB(32, 169, 153)
@@ -233,7 +243,6 @@ local function createModButton(key, modName)
     button.TextSize = 14
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
-    table.insert(uiElements.rightPanelElements, button)
     
     local function updateText()
         button.Text = LANGUAGES[currentLanguage][key] .. " [" .. (modStates[modName] and "ON" or "OFF") .. "]"
@@ -247,15 +256,13 @@ local function createModButton(key, modName)
     return updateText
 end
 
-local function createSlider(key, settingName, min, max, callback)
-    local container = Instance.new("Frame", rightPanel)
+local function createSlider(parent, key, settingName, min, max, callback)
+    local container = Instance.new("Frame", parent)
     container.Name = key
     container.Size = UDim2.new(0.9, 0, 0, 50)
     container.BackgroundTransparency = 1
-    table.insert(uiElements.rightPanelElements, container)
 
     local title = Instance.new("TextLabel", container)
-    title.Name = "Label"
     title.Size = UDim2.new(1, 0, 0.5, 0)
     title.Font = Enum.Font.Gotham
     title.TextSize = 14
@@ -278,7 +285,7 @@ local function createSlider(key, settingName, min, max, callback)
     slider.MaxValue = max
     slider.Value = modSettings[settingName]
     
-    local function updateTitle()
+    local function updateText()
         title.Text = LANGUAGES[currentLanguage][key]
         valueLabel.Text = tostring(math.floor(slider.Value))
     end
@@ -289,53 +296,82 @@ local function createSlider(key, settingName, min, max, callback)
         if callback then callback(value) end
     end)
     
-    return updateTitle
+    return updateText
 end
+
+local function createNormalButton(parent, key, onClick)
+    local button = Instance.new("TextButton", parent)
+    button.Name = key
+    button.Size = UDim2.new(0.9, 0, 0, 30)
+    button.BackgroundColor3 = Color3.fromRGB(32, 169, 153)
+    button.Font = Enum.Font.GothamSemibold
+    button.TextSize = 14
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
+    if onClick then button.MouseButton1Click:Connect(onClick) end
+    return button
+end
+
+local function createTextLabel(parent, key, isDescription)
+    local label = Instance.new("TextLabel", parent)
+    label.Name = key
+    label.Size = UDim2.new(0.9, 0, 0, 40)
+    label.Font = isDescription and Enum.Font.Gotham or Enum.Font.GothamBold
+    label.TextSize = isDescription and 13 or 16
+    label.TextColor3 = isDescription and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    return label
+end
+
 
 local function populateRightPanel(category)
     for _, v in ipairs(rightPanel:GetChildren()) do
         if v:IsA("GuiObject") then v:Destroy() end
     end
-    uiElements.rightPanelElements = {}
+    uiElements.rightPanelUpdaters = {}
 
     if category == "category_localplayer" then
-        local updateFlyText = createModButton("fly", "isFlying")
-        local updateFlySpeedText = createSlider("fly_speed", "flySpeed", 0, 100)
-        local updateSpeedText = createModButton("speed", "isSpeedEnabled")
-        local updateWalkSpeedText = createSlider("walk_speed", "walkSpeed", 0, 100, function(value)
+        table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "fly", "isFlying"))
+        table.insert(uiElements.rightPanelUpdaters, createSlider(rightPanel, "fly_speed", "flySpeed", 0, 100))
+        table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "speed", "isSpeedEnabled"))
+        table.insert(uiElements.rightPanelUpdaters, createSlider(rightPanel, "walk_speed", "walkSpeed", 0, 100, function(value)
              if modStates.isSpeedEnabled and localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
                 localPlayer.Character.Humanoid.WalkSpeed = value
             end
-        end)
-        local updateNoclipText = createModButton("noclip", "isNoclipping")
-        local updateEspText = createModButton("esp", "isEspEnabled")
-        table.insert(uiElements.rightPanelElements, {updateFlyText, updateFlySpeedText, updateSpeedText, updateWalkSpeedText, updateNoclipText, updateEspText})
+        end))
+        table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "noclip", "isNoclipping"))
+        table.insert(uiElements.rightPanelUpdaters, createModButton(rightPanel, "esp", "isEspEnabled"))
     elseif category == "category_teleports" then
-        createRightPanelTitle("teleport_title")
-        local saveBtn = Instance.new("TextButton", rightPanel) saveBtn.Name = "save_location" --... (etc)
-        local tpBtn = Instance.new("TextButton", rightPanel) tpBtn.Name = "teleport_to_location" --...
-        local statusLabel = Instance.new("TextLabel", rightPanel) statusLabel.Name = "location_status" --...
-        table.insert(uiElements.rightPanelElements, {saveBtn, tpBtn, statusLabel})
+        local statusLabel = createTextLabel(rightPanel, "no_location_saved", true)
+        createNormalButton(rightPanel, "save_location", function()
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                teleportData.savedPosition = char.HumanoidRootPart.CFrame
+                local pos = teleportData.savedPosition.Position
+                local text = string.format("%.0f, %.0f, %.0f", pos.X, pos.Y, pos.Z)
+                statusLabel.Text = string.format(LANGUAGES[currentLanguage].location_saved_at, text)
+            end
+        end)
+        createNormalButton(rightPanel, "teleport_to_location", function()
+             local char = localPlayer.Character
+            if teleportData.savedPosition and char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = teleportData.savedPosition
+            end
+        end)
     elseif category == "category_credits" then
-        createRightPanelTitle("credits_title")
-        -- Add update entries
-        local langBtnPt = Instance.new("TextButton", rightPanel) langBtnPt.Name = "change_lang_pt" --...
-        local langBtnEn = Instance.new("TextButton", rightPanel) langBtnEn.Name = "change_lang_en" --...
-        table.insert(uiElements.rightPanelElements, {langBtnPt, langBtnEn})
+        createRightPanelTitle(rightPanel, "credits_title")
+        createTextLabel(rightPanel, "update_1_title", false)
+        createTextLabel(rightPanel, "update_1_desc", true)
+        createTextLabel(rightPanel, "update_2_title", false)
+        createTextLabel(rightPanel, "update_2_desc", true)
+        createNormalButton(rightPanel, "change_lang_pt", function() currentLanguage = "pt"; updateAllUIText() end)
+        createNormalButton(rightPanel, "change_lang_en", function() currentLanguage = "en"; updateAllUIText() end)
     else -- Placeholder
-        createRightPanelTitle("placeholder_title")
-        local desc = Instance.new("TextLabel", rightPanel) desc.Name = "placeholder_desc" --...
-        table.insert(uiElements.rightPanelElements, desc)
+        createRightPanelTitle(rightPanel, "placeholder_title")
+        createTextLabel(rightPanel, "placeholder_desc", true)
     end
-end
-
-local function selectCategory(button, categoryKey)
-    if activeCategoryButton then
-        activeCategoryButton.BackgroundColor3 = Color3.fromRGB(35, 41, 46) -- Default
-    end
-    button.BackgroundColor3 = Color3.fromRGB(32, 169, 153) -- Highlight
-    activeCategoryButton = button
-    populateRightPanel(categoryKey)
 end
 
 function updateAllUIText()
@@ -347,21 +383,25 @@ function updateAllUIText()
     
     for _, element in ipairs(rightPanel:GetChildren()) do
         if lang[element.Name] then
-            if element:IsA("TextLabel") or element:IsA("TextButton") then
-                element.Text = lang[element.Name]
-            elseif element:IsA("Frame") and element:FindFirstChild("Label") then
-                element.Label.Text = lang[element.Name]
-            end
+            element.Text = lang[element.Name]
         end
     end
-    
-    for _, func in ipairs(uiElements.rightPanelElements) do
-        if type(func) == "function" then
-            func()
-        end
+
+    for _, updaterFunc in ipairs(uiElements.rightPanelUpdaters) do
+        updaterFunc()
     end
 end
 
+
+local function selectCategory(button, categoryKey)
+    if activeCategoryButton then
+        activeCategoryButton.BackgroundColor3 = Color3.fromRGB(35, 41, 46) -- Default
+    end
+    button.BackgroundColor3 = Color3.fromRGB(32, 169, 153) -- Highlight
+    activeCategoryButton = button
+    populateRightPanel(categoryKey)
+    updateAllUIText() -- Update text for the new panel
+end
 
 for _, key in ipairs({"category_combat", "category_localplayer", "category_misc", "category_teleports", "category_admin", "category_credits"}) do
     local button = Instance.new("TextButton", leftPanel)
@@ -381,17 +421,83 @@ for _, key in ipairs({"category_combat", "category_localplayer", "category_misc"
 end
 
 --==================================================================================--
+--||                           LÓGICA DOS MODS                                    ||--
+--==================================================================================--
+RunService.RenderStepped:Connect(function()
+    local char = localPlayer.Character
+    if not char then return end
+
+    -- Lógica do Fly
+    if modStates.isFlying then
+        if not modConnections.flyGyro then
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                modConnections.flyGyro = Instance.new("BodyGyro", rootPart)
+                modConnections.flyGyro.P, modConnections.flyGyro.MaxTorque = 50000, Vector3.new(4e5, 4e5, 4e5)
+                modConnections.flyVelocity = Instance.new("BodyVelocity", rootPart)
+                modConnections.flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            end
+        end
+        if modConnections.flyVelocity and modConnections.flyGyro then
+            local direction = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction += Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction -= Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction -= Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction += Camera.CFrame.RightVector end
+            local vertical = 0
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vertical = 1 end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vertical = -1 end
+            modConnections.flyVelocity.Velocity = (direction.Unit * modSettings.flySpeed) + Vector3.new(0, vertical * modSettings.flySpeed, 0)
+            modConnections.flyGyro.CFrame = Camera.CFrame
+        end
+    else
+        if modConnections.flyGyro then modConnections.flyGyro:Destroy(); modConnections.flyGyro = nil end
+        if modConnections.flyVelocity then modConnections.flyVelocity:Destroy(); modConnections.flyVelocity = nil end
+    end
+
+    -- Lógica do Noclip
+    if modStates.isNoclipping and not modConnections.noclipConnection then
+        modConnections.noclipConnection = RunService.Stepped:Connect(function()
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end)
+    elseif not modStates.isNoclipping and modConnections.noclipConnection then
+        modConnections.noclipConnection:Disconnect(); modConnections.noclipConnection = nil
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+end)
+
+
+--==================================================================================--
 --||                                  INICIALIZAÇÃO                               ||--
 --==================================================================================--
 function Start()
-    TweenService:Create(progressBarFill, TweenInfo.new(1.5), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-    task.wait(1.5)
-    TweenService:Create(loadingGui, TweenInfo.new(0.5), {GroupTransparency = 1}):Play()
-    task.wait(0.5)
-    loadingGui:Destroy()
-    mainGui.Enabled = true
-    selectCategory(uiElements.categoryButtons.category_localplayer, "category_localplayer") -- Seleciona a primeira página
+    local progressBarTween = TweenService:Create(progressBarFill, TweenInfo.new(1.5, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)})
+    
+    progressBarTween.Completed:Connect(function()
+        loadingStatus.Text = LANGUAGES[currentLanguage].ready
+        task.wait(0.3) 
+
+        local fadeOutTween = TweenService:Create(loadingGui, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
+        
+        fadeOutTween.Completed:Connect(function()
+            loadingGui:Destroy()
+            mainGui.Enabled = true
+            if uiElements.categoryButtons.category_localplayer then
+                selectCategory(uiElements.categoryButtons.category_localplayer, "category_localplayer")
+            end
+            print("CALVO MOD V3.1 Carregado com sucesso!")
+        end)
+        
+        fadeOutTween:Play()
+    end)
+    
+    progressBarTween:Play()
 end
 
 closeButton.MouseButton1Click:Connect(function() mainGui.Enabled = false end)
+
 Start()
