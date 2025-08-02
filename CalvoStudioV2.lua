@@ -539,10 +539,9 @@ end)
 
 -- Conectar botões de navegação
 for name, data in pairs(Categories) do
-    data.Button.MouseButton1Click:C
-CloseBtn.MouseButton1Click:Connect(function()
-    AnimateOut(MenuContainer, 0.3, function() ScreenGui:Destroy() end)
-end)
+ data.Button.MouseButton1Click:Connect(function()
+            
+            
 
 MinimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
