@@ -39,8 +39,9 @@ loadingScreenGui.Parent = playerGui
 loadingScreenGui.ResetOnSpawn = false
 loadingScreenGui.DisplayOrder = 1000 -- Garante que fique por cima de tudo
 
--- Fundo
-local loadingBackground = Instance.new("Frame")
+-- --- ALTERAÇÃO: Usando CanvasGroup para um fade out perfeito ---
+-- O CanvasGroup age como um Frame, mas permite animar a transparência de todos os filhos de uma vez.
+local loadingBackground = Instance.new("CanvasGroup") 
 loadingBackground.Name = "Background"
 loadingBackground.Parent = loadingScreenGui
 loadingBackground.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -147,7 +148,7 @@ minimizeButton.Name = "MinimizeButton"
 minimizeButton.Parent = titleBar
 minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 89, 89)
 minimizeButton.Size = UDim2.new(0, 15, 0, 15)
-minimizeButton.Position = UDim2.new(0, 15, 0.5, 0)
+minimizeButton.Position = UDim2.new(0, 25, 0.5, 0) -- Pequeno ajuste de posição
 minimizeButton.AnchorPoint = Vector2.new(0.5, 0.5)
 minimizeButton.Font = Enum.Font.SourceSansBold
 minimizeButton.Text = ""
@@ -270,20 +271,16 @@ function StartLoading()
     loadingText.Text = "Pronto!"
     task.wait(0.5)
     
+    -- --- ALTERAÇÃO: Lógica de fade out corrigida ---
+    -- Anima a propriedade GroupTransparency do CanvasGroup para fazer tudo desaparecer suavemente.
     local fadeOutInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad)
-    local fadeOutTween = TweenService:Create(loadingBackground, fadeOutInfo, {BackgroundTransparency = 1})
+    local fadeOutTween = TweenService:Create(loadingBackground, fadeOutInfo, {GroupTransparency = 1})
     fadeOutTween:Play()
     
-    for _, child in ipairs(loadingBackground:GetChildren()) do
-        if child:IsA("GuiObject") then
-            TweenService:Create(child, fadeOutInfo, {TextTransparency = 1, ImageTransparency = 1}):Play()
-        end
-    end
-    
-    fadeOutTween.Completed:Wait()
+    fadeOutTween.Completed:Wait() -- Espera a animação de fade out terminar
 
-    loadingScreenGui:Destroy()
-    mainGui.Enabled = true
+    loadingScreenGui:Destroy() -- Destrói a GUI antiga
+    mainGui.Enabled = true     -- Ativa a nova GUI
     print("Calvo Studio GUI carregado com sucesso!")
 end
 
@@ -363,7 +360,12 @@ RunService.RenderStepped:Connect(function()
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then direction = direction + Vector3.new(0,1,0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then direction = direction - Vector3.new(0,1,0) end
 
-        flyVelocity.Velocity = direction.Unit * 50 * flySpeed
+        if direction.Magnitude > 0 then
+            flyVelocity.Velocity = direction.Unit * 50 * flySpeed
+        else
+            flyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+        
         if flyGyro then flyGyro.CFrame = cameraCFrame end
     end
 end)
@@ -371,8 +373,9 @@ end)
 -- Botão Noclip
 noclipButton.Activated:Connect(function()
     isNoclipping = not isNoclipping
-    RunService:Set3dRenderingEnabled(not isNoclipping) -- Workaround to update collisions
-    RunService:Set3dRenderingEnabled(isNoclipping)
+    -- Um pequeno truque para forçar o Roblox a atualizar o estado da colisão
+    RunService:Set3dRenderingEnabled(false)
+    RunService:Set3dRenderingEnabled(true)
     for _, part in pairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
             part.CanCollide = not isNoclipping
