@@ -1,8 +1,6 @@
 --[[
-    Script: Calvo Studio (V5 - Corrigido e Aprimorado)
-    Autor: Recriado e aprimorado com base na solicitação
-    Descrição: GUI com tela de carregamento, menu principal com páginas,
-               botões de fechar/minimizar e um painel de opções de modificação (mods) funcional.
+    Script: Calvo Mod (V6 - Completo)
+    Descrição: GUI completa com Aimbot, ESP (Vida, Nome, Plataforma), Fly, Noclip, Speed e mais.
 ]]
 
 --==================================================================================--
@@ -18,21 +16,24 @@ local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
 
 --==================================================================================--
 --||                           CONFIGURAÇÕES E ESTADO                               ||--
 --==================================================================================--
 
 -- Variáveis de estado para os mods
-local isFlying = false
-local isNoclipping = false
-local isSpeedEnabled = false
-local noclipConnection = nil -- Para controlar o loop do noclip
+local isFlying, isNoclipping, isSpeedEnabled, isEspEnabled, isAimbotEnabled = false, false, false, false, false
+local noclipConnection = nil
 
--- Variáveis de configuração dos mods
+-- Configurações dos mods
 local originalWalkSpeed = humanoid.WalkSpeed
 local flySpeed = 50
 local customWalkSpeed = 50
+local aimbotSmoothness = 0.2 -- (0.1 = Rápido, 1 = Lento)
+
+-- Tabela para guardar os elementos do ESP
+local espElements = {}
 
 --==================================================================================--
 --||                                TELA DE CARREGAMENTO                            ||--
@@ -44,15 +45,13 @@ loadingScreenGui.Parent = playerGui
 loadingScreenGui.ResetOnSpawn = false
 loadingScreenGui.DisplayOrder = 1000
 
-local loadingBackground = Instance.new("CanvasGroup")
-loadingBackground.Name = "Background"
-loadingBackground.Parent = loadingScreenGui
+local loadingBackground = Instance.new("CanvasGroup", loadingScreenGui)
 loadingBackground.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 loadingBackground.Size = UDim2.new(1, 0, 1, 0)
 
 local loadingTitle = Instance.new("TextLabel", loadingBackground)
 loadingTitle.Font = Enum.Font.GothamSemibold
-loadingTitle.Text = "Calvo Studio"
+loadingTitle.Text = "Calvo Mod"
 loadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 loadingTitle.TextSize = 52
 loadingTitle.BackgroundTransparency = 1
@@ -62,7 +61,6 @@ loadingTitle.AnchorPoint = Vector2.new(0.5, 0.5)
 
 local progressBarBackground = Instance.new("Frame", loadingBackground)
 progressBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-progressBarBackground.BorderSizePixel = 0
 progressBarBackground.Size = UDim2.new(0.5, 0, 0, 20)
 progressBarBackground.Position = UDim2.new(0.5, 0, 0.5, 0)
 progressBarBackground.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -70,13 +68,12 @@ Instance.new("UICorner", progressBarBackground).CornerRadius = UDim.new(1, 0)
 
 local progressBarFill = Instance.new("Frame", progressBarBackground)
 progressBarFill.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
-progressBarFill.BorderSizePixel = 0
 progressBarFill.Size = UDim2.new(0, 0, 1, 0)
 Instance.new("UICorner", progressBarFill).CornerRadius = UDim.new(1, 0)
 
 local loadingText = Instance.new("TextLabel", loadingBackground)
 loadingText.Font = Enum.Font.Gotham
-loadingText.Text = "Carregando assets..."
+loadingText.Text = "Carregando..."
 loadingText.TextColor3 = Color3.fromRGB(180, 180, 180)
 loadingText.TextSize = 18
 loadingText.BackgroundTransparency = 1
@@ -84,15 +81,16 @@ loadingText.Size = UDim2.new(1, 0, 0, 30)
 loadingText.Position = UDim2.new(0.5, 0, 0.5, 30)
 loadingText.AnchorPoint = Vector2.new(0.5, 0.5)
 
+
 --==================================================================================--
 --||                                   MENU PRINCIPAL                               ||--
 --==================================================================================--
 
 local mainGui = Instance.new("ScreenGui")
-mainGui.Name = "CalvoStudioGUI"
+mainGui.Name = "CalvoModGUI"
 mainGui.Parent = playerGui
 mainGui.ResetOnSpawn = false
-mainGui.Enabled = false
+mainGui.Enabled = false -- Começa desativado
 
 local mainFrame = Instance.new("Frame", mainGui)
 mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -100,7 +98,7 @@ mainFrame.BorderColor3 = Color3.fromRGB(20, 20, 25)
 mainFrame.BorderSizePixel = 2
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.Size = UDim2.new(0, 320, 0, 420)
+mainFrame.Size = UDim2.new(0, 340, 0, 480) -- Tamanho ajustado
 mainFrame.Draggable = true
 mainFrame.Active = true
 mainFrame.ClipsDescendants = true
@@ -109,17 +107,15 @@ Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 local titleBar = Instance.new("Frame", mainFrame)
 titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BorderSizePixel = 0
 
 local titleLabel = Instance.new("TextLabel", titleBar)
 titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Text = "Calvo Studio"
+titleLabel.Text = "Calvo Mod"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 18
 titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
 titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 
--- --- NOVO: Botões de Controle da Janela (Fechar e Minimizar) ---
 local controlButtonsFrame = Instance.new("Frame", titleBar)
 controlButtonsFrame.BackgroundTransparency = 1
 controlButtonsFrame.Size = UDim2.new(0, 60, 1, 0)
@@ -131,23 +127,16 @@ controlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 controlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 controlLayout.Padding = UDim.new(0, 8)
 
-local function createControlButton(text, color, name)
-    local button = Instance.new("TextButton")
-    button.Parent = controlButtonsFrame
-	button.Name = name
+local function createControlButton(color)
+    local button = Instance.new("TextButton", controlButtonsFrame)
     button.BackgroundColor3 = color
     button.Size = UDim2.new(0, 15, 0, 15)
-    button.Font = Enum.Font.SourceSansBold
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.TextSize = 14
-    button.TextScaled = true
+    button.Text = ""
     Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
     return button
 end
-
-local minimizeButton = createControlButton("_", Color3.fromRGB(255, 189, 89), "MinimizeButton")
-local closeButton = createControlButton("X", Color3.fromRGB(255, 89, 89), "CloseButton")
+local minimizeButton = createControlButton(Color3.fromRGB(255, 189, 89))
+local closeButton = createControlButton(Color3.fromRGB(255, 89, 89))
 
 
 local contentContainer = Instance.new("Frame", mainFrame)
@@ -157,33 +146,41 @@ contentContainer.Position = UDim2.new(0, 0, 0, 40)
 contentContainer.ClipsDescendants = true
 
 local mainPage = Instance.new("Frame", contentContainer)
+mainPage.Name = "MainPage"
 mainPage.BackgroundTransparency = 1
 mainPage.Size = UDim2.new(1, 0, 1, 0)
 local mainPageLayout = Instance.new("UIListLayout", mainPage)
 mainPageLayout.Padding = UDim.new(0, 15)
 mainPageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 mainPageLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-mainPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local modsPage = Instance.new("Frame", contentContainer)
+modsPage.Name = "ModsPage"
 modsPage.BackgroundTransparency = 1
 modsPage.Size = UDim2.new(1, 0, 1, 0)
 modsPage.Visible = false
 local modsPageLayout = Instance.new("UIListLayout", modsPage)
-modsPageLayout.Padding = UDim.new(0, 12)
+modsPageLayout.Padding = UDim.new(0, 15) -- Espaçamento entre elementos
 modsPageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 modsPageLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-modsPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-local modsPagePadding = Instance.new("UIPadding", modsPage)
-modsPagePadding.PaddingTop = UDim.new(0, 20)
+Instance.new("UIPadding", modsPage).PaddingTop = UDim.new(0, 20)
+
+--==================================================================================--
+--||                                   GUI DO ESP                                 ||--
+--==================================================================================--
+local espGui = Instance.new("ScreenGui")
+espGui.Name = "ESPGUI"
+espGui.Parent = playerGui
+espGui.ResetOnSpawn = false
+espGui.Enabled = false -- Começa desativado
+espGui.DisplayOrder = 1 -- Abaixo do menu principal
 
 --==================================================================================--
 --||                          FUNÇÕES DE CRIAÇÃO DE UI                            ||--
 --==================================================================================--
 
 local function createButton(parent, text, layoutOrder)
-    local button = Instance.new("TextButton")
-    button.Parent = parent
+    local button = Instance.new("TextButton", parent)
     button.Name = text:gsub("%s", "") .. "Button"
     button.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
     button.Size = UDim2.new(0.8, 0, 0, 45)
@@ -193,14 +190,6 @@ local function createButton(parent, text, layoutOrder)
     button.TextSize = 16
     button.LayoutOrder = layoutOrder
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-    
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 80, 95)}):Play()
-    end)
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 75)}):Play()
-    end)
-    
     return button
 end
 
@@ -213,13 +202,8 @@ local function createModButton(parent, text, layoutOrder)
     local state = false
     button.Activated:Connect(function()
         state = not state
-        if state then
-            button.Text = text .. " [ON]"
-            button.TextColor3 = Color3.fromRGB(100, 255, 100)
-        else
-            button.Text = text .. " [OFF]"
-            button.TextColor3 = Color3.fromRGB(255, 100, 100)
-        end
+        button.Text = text .. (state and " [ON]" or " [OFF]")
+        button.TextColor3 = state and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
     end)
     return button
 end
@@ -252,18 +236,16 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 
 	local track = Instance.new("Frame", container)
 	track.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-	track.BorderSizePixel = 0
 	track.Size = UDim2.new(1, 0, 0, 8)
 	track.Position = UDim2.new(0, 0, 0.75, 0)
 	Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
 
 	local fill = Instance.new("Frame", track)
 	fill.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
-	fill.BorderSizePixel = 0
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
-	local dragger = Instance.new("TextButton", track) -- Usar TextButton para melhor captura de input
-	dragger.Size = UDim2.new(1, 0, 3, 0) -- Área de arrastar maior
+	local dragger = Instance.new("TextButton", track)
+	dragger.Size = UDim2.new(1, 0, 3, 0)
 	dragger.Position = UDim2.new(0.5, 0, 0.5, 0)
 	dragger.AnchorPoint = Vector2.new(0.5, 0.5)
 	dragger.BackgroundTransparency = 1
@@ -282,24 +264,15 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 
 	dragger.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			local function updateFromInput()
-				local mousePos = UserInputService:GetMouseLocation()
-				local relativeX = mousePos.X - track.AbsolutePosition.X
-				local percentage = math.clamp(relativeX / track.AbsoluteSize.X, 0, 1)
-				local newValue = min + (max - min) * percentage
-				updateSlider(newValue)
-			end
-			
-			updateFromInput() -- Atualiza no primeiro clique
-
-			local moveConnection
+			local moveConnection, releaseConnection
 			moveConnection = UserInputService.InputChanged:Connect(function(inputObj)
 				if inputObj.UserInputType == Enum.UserInputType.MouseMovement or inputObj.UserInputType == Enum.UserInputType.Touch then
-					updateFromInput()
+					local mousePos = UserInputService:GetMouseLocation()
+					local relativeX = mousePos.X - track.AbsolutePosition.X
+					local percentage = math.clamp(relativeX / track.AbsoluteSize.X, 0, 1)
+					updateSlider(min + (max - min) * percentage)
 				end
 			end)
-			
-			local releaseConnection
 			releaseConnection = UserInputService.InputEnded:Connect(function(inputObj)
 				if inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch then
 					moveConnection:Disconnect()
@@ -308,40 +281,29 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 			end)
 		end
 	end)
-	return container
 end
 
 --==================================================================================--
 --||                               ELEMENTOS DA GUI                               ||--
 --==================================================================================--
 
-local modMenuButton = createButton(mainPage, "Mod Menu", 1)
+-- Página Principal
+local modsButton = createButton(mainPage, "Mods", 1)
 local discordButton = createButton(mainPage, "Discord", 2)
 discordButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-discordButton.MouseEnter:Connect(function()
-    TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(114, 137, 218)}):Play()
-end)
-discordButton.MouseLeave:Connect(function()
-    TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play()
-end)
 
-local flyButton = createModButton(modsPage, "Fly", 1)
-createSlider(modsPage, "Fly Speed", 1, 100, flySpeed, 2, function(value)
-    flySpeed = value
-end)
-
-local noclipButton = createModButton(modsPage, "Atravessar Parede", 3)
-
-local speedButton = createModButton(modsPage, "Speed", 4)
-createSlider(modsPage, "Walk Speed", originalWalkSpeed, 100, customWalkSpeed, 5, function(value)
+-- Página de Mods
+local aimbotButton = createModButton(modsPage, "Aimbot", 1)
+local espButton = createModButton(modsPage, "ESP", 2)
+local flyButton = createModButton(modsPage, "Fly", 3)
+createSlider(modsPage, "Fly Speed", 1, 100, flySpeed, 4, function(value) flySpeed = value end)
+local noclipButton = createModButton(modsPage, "Atravessar Parede", 5)
+local speedButton = createModButton(modsPage, "Speed", 6)
+createSlider(modsPage, "Walk Speed", originalWalkSpeed, 100, customWalkSpeed, 7, function(value)
     customWalkSpeed = value
-    if isSpeedEnabled then
-        humanoid.WalkSpeed = customWalkSpeed
-    end
+    if isSpeedEnabled then humanoid.WalkSpeed = customWalkSpeed end
 end)
-
-local backButton = createButton(modsPage, "Voltar", 6)
-backButton.BackgroundColor3 = Color3.fromRGB(80, 80, 95)
+local backButton = createButton(modsPage, "Voltar", 99)
 backButton.Size = UDim2.new(0.85, 0, 0, 35)
 
 --==================================================================================--
@@ -349,145 +311,158 @@ backButton.Size = UDim2.new(0.85, 0, 0, 35)
 --==================================================================================--
 
 function StartLoading()
-    local tween = TweenService:Create(progressBarFill, TweenInfo.new(2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
+    local tween = TweenService:Create(progressBarFill, TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
     tween:Play()
     tween.Completed:Wait()
-    
     loadingText.Text = "Pronto!"
     task.wait(0.5)
-    
-    local fadeOutTween = TweenService:Create(loadingBackground, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {GroupTransparency = 1})
-    fadeOutTween:Play()
-    fadeOutTween.Completed:Wait()
-
+    local fadeOut = TweenService:Create(loadingBackground, TweenInfo.new(0.5), {GroupTransparency = 1})
+    fadeOut:Play()
+    fadeOut.Completed:Wait()
     loadingScreenGui:Destroy()
     mainGui.Enabled = true
-    print("Calvo Studio GUI carregado com sucesso!")
 end
 
--- LÓGICA DA JANELA E NAVEGAÇÃO
-closeButton.MouseButton1Click:Connect(function()
-    mainGui.Enabled = false
-end)
-
+-- LÓGICA DA JANELA
+closeButton.MouseButton1Click:Connect(function() mainGui.Enabled = false end)
 local isMinimized = false
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     contentContainer.Visible = not isMinimized
-    
-    local sizeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local targetSize
-    if isMinimized then
-		targetSize = UDim2.new(0, mainFrame.Size.X.Offset, 0, titleBar.Size.Y.Offset)
-    else
-        targetSize = UDim2.new(0, 320, 0, 420)
+    local targetSize = isMinimized and UDim2.new(0, 340, 0, 40) or UDim2.new(0, 340, 0, 480)
+    TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = targetSize}):Play()
+end)
+
+-- NAVEGAÇÃO
+modsButton.MouseButton1Click:Connect(function() mainPage.Visible = false; modsPage.Visible = true end)
+backButton.MouseButton1Click:Connect(function() modsPage.Visible = false; mainPage.Visible = true end)
+
+-- LÓGICA DOS MODS
+
+-- --- Aimbot ---
+aimbotButton.Activated:Connect(function() isAimbotEnabled = not isAimbotEnabled end)
+function getClosestPlayerToMouse()
+    local closestPlayer, shortestDist = nil, math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character.Humanoid.Health > 0 then
+            local headPos, onScreen = camera:WorldToScreenPoint(player.Character.Head.Position)
+            if onScreen then
+                local dist = (Vector2.new(headPos.X, headPos.Y) - mousePos).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closestPlayer = player
+                end
+            end
+        end
     end
-	TweenService:Create(mainFrame, sizeInfo, {Size = targetSize}):Play()
+    return closestPlayer
+end
+
+-- --- ESP ---
+espButton.Activated:Connect(function()
+    isEspEnabled = not isEspEnabled
+    espGui.Enabled = isEspEnabled
+    if not isEspEnabled then
+        for _, elements in pairs(espElements) do elements.box:Destroy() end
+        espElements = {}
+    end
 end)
 
-modMenuButton.MouseButton1Click:Connect(function()
-    mainPage.Visible = false
-    modsPage.Visible = true
-end)
+function getPlatformEmoji(player)
+	-- A detecção real só funciona para o jogador local.
+    if player == localPlayer then
+        return UserInputService.TouchEnabled and "📱" or "💻"
+    end
+	-- Para outros, não há API. O padrão será PC.
+    return "💻"
+end
 
-backButton.MouseButton1Click:Connect(function()
-    modsPage.Visible = false
-    mainPage.Visible = true
-end)
+function createEspElements(player)
+    local box = Instance.new("Frame", espGui)
+    box.BackgroundTransparency = 1
+    box.Size = UDim2.new(0, 100, 0, 120) -- Tamanho inicial
+    Instance.new("UIStroke", box).Color = Color3.fromRGB(255, 255, 255)
 
-discordButton.MouseButton1Click:Connect(function()
-    print("Botão do Discord clicado!")
-    -- setclipboard("SEU_LINK_AQUI") -- Descomente se tiver permissão
-end)
+    local nameLabel = Instance.new("TextLabel", box)
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, -20)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 14
 
--- LÓGICA DOS MODS (CORRIGIDA)
+    local healthBar = Instance.new("Frame", box)
+    healthBar.Position = UDim2.new(-1, -5, 0, 0)
+    healthBar.Size = UDim2.new(0, 5, 1, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    local healthFill = Instance.new("Frame", healthBar)
+    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFill.Position = UDim2.new(0, 0, 1, 0)
+    healthFill.AnchorPoint = Vector2.new(0, 1)
 
--- --- Lógica do Fly ---
+    return {box = box, name = nameLabel, health = healthFill}
+end
+
+function updateEsp()
+    local currentPlayers = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.Humanoid.Health > 0 then
+            currentPlayers[player] = true
+            local head, root = player.Character:FindFirstChild("Head"), player.Character.HumanoidRootPart
+            if not head or not root then continue end
+
+            local headPos, onScreen = camera:WorldToScreenPoint(head.Position)
+            if onScreen then
+                if not espElements[player] then espElements[player] = createEspElements(player) end
+                
+                local elements = espElements[player]
+                local scale = 1 / (headPos.Z / 100)
+                local boxSize = Vector2.new(60 * scale, 120 * scale)
+                
+                elements.box.Visible = true
+                elements.box.Size = UDim2.fromOffset(boxSize.X, boxSize.Y)
+                elements.box.Position = UDim2.fromOffset(headPos.X - boxSize.X / 2, headPos.Y - boxSize.Y / 2)
+                elements.name.Text = player.Name .. " " .. getPlatformEmoji(player)
+                
+                local healthPercent = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth
+                elements.health.Size = UDim2.new(1, 0, healthPercent, 0)
+                elements.health.BackgroundColor3 = Color3.fromHSV(0.33 * healthPercent, 1, 1)
+            elseif espElements[player] then
+                espElements[player].box.Visible = false
+            end
+        end
+    end
+
+    for player, elements in pairs(espElements) do
+        if not currentPlayers[player] then
+            elements.box:Destroy()
+            espElements[player] = nil
+        end
+    end
+end
+
+-- --- Fly ---
 local flyGyro, flyVelocity
 flyButton.Activated:Connect(function()
     isFlying = not isFlying
-    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
-
-    if isFlying then
-        flyGyro = Instance.new("BodyGyro")
-        flyGyro.P = 50000
-        flyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-        flyGyro.CFrame = rootPart.CFrame
-        flyGyro.Parent = rootPart
-
-        flyVelocity = Instance.new("BodyVelocity")
-        flyVelocity.Velocity = Vector3.new()
-        flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        flyVelocity.Parent = rootPart
-        
-        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-    else
+    if not isFlying then
         if flyGyro then flyGyro:Destroy() end
         if flyVelocity then flyVelocity:Destroy() end
         humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-    end
-end)
-
--- --- Lógica do Speed ---
-speedButton.Activated:Connect(function()
-    isSpeedEnabled = not isSpeedEnabled
-    if isSpeedEnabled then
-        humanoid.WalkSpeed = customWalkSpeed
     else
-        humanoid.WalkSpeed = originalWalkSpeed
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then isFlying = false; return end
+        flyGyro = Instance.new("BodyGyro", root); flyGyro.P, flyGyro.MaxTorque = 5e4, Vector3.new(4e5, 4e5, 4e5)
+        flyVelocity = Instance.new("BodyVelocity", root); flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     end
 end)
 
--- --- Lógica do Noclip ---
+-- --- Noclip ---
 noclipButton.Activated:Connect(function()
     isNoclipping = not isNoclipping
+    if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
     if isNoclipping then
-        -- Conecta a função ao evento Stepped para desativar colisão continuamente
         noclipConnection = RunService.Stepped:Connect(function()
-            for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        end)
-    else
-        -- Desconecta a função e reativa a colisão
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
-        end
-    end
-end)
-
-
--- --- Loop principal para mods que precisam de atualização constante (Fly) ---
-RunService.RenderStepped:Connect(function()
-    if isFlying and flyVelocity and flyGyro then
-        local direction = Vector3.new()
-        local camera = workspace.CurrentCamera
-		
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = -camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = -camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = camera.CFrame.RightVector end
-		
-		local verticalDirection = 0
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then verticalDirection = 1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then verticalDirection = -1 end
-		
-		local combinedDirection = (direction.Unit * Vector3.new(1, 0, 1)).Unit + Vector3.new(0, verticalDirection, 0)
-
-        flyVelocity.Velocity = combinedDirection * flySpeed
-        flyGyro.CFrame = camera.CFrame
-    end
-end)
-
-
--- Inicia todo o processo
-StartLoading()
+            for _, part in ipairs(character:GetDescendants()) do if part:IsA("BasePart") then part
