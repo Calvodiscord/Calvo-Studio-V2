@@ -1,7 +1,8 @@
 --[[
-    Script: Calvo Studio (V5 - Corrigido e Aprimorado)
+    Script: Calvo Studio
    ATUALIZAÇÕES;
-botões de fechar/minimizar e um painel de opções de modificação (mods) funcional.
+- Adicionado ESP para jogadores (Nome, Vida, Dispositivo).
+- Otimização geral e organização do código.
 ]]
 
 --==================================================================================--
@@ -26,12 +27,16 @@ local humanoid = character:WaitForChild("Humanoid")
 local isFlying = false
 local isNoclipping = false
 local isSpeedEnabled = false
-local noclipConnection = nil -- Para controlar o loop do noclip
+local isEspEnabled = false -- NOVO: Estado do ESP
+local noclipConnection = nil
 
 -- Variáveis de configuração dos mods
 local originalWalkSpeed = humanoid.WalkSpeed
 local flySpeed = 50
 local customWalkSpeed = 50
+
+-- Tabela para guardar as GUIs de ESP de cada jogador
+local espTracker = {}
 
 --==================================================================================--
 --||                                TELA DE CARREGAMENTO                            ||--
@@ -118,7 +123,7 @@ titleLabel.TextSize = 18
 titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
 titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 
--- --- NOVO: Botões de Controle da Janela (Fechar e Minimizar) ---
+-- --- Botões de Controle da Janela (Fechar e Minimizar) ---
 local controlButtonsFrame = Instance.new("Frame", titleBar)
 controlButtonsFrame.BackgroundTransparency = 1
 controlButtonsFrame.Size = UDim2.new(0, 60, 1, 0)
@@ -220,7 +225,7 @@ local function createModButton(parent, text, layoutOrder)
             button.TextColor3 = Color3.fromRGB(255, 100, 100)
         end
     end)
-    return button
+    return button, function() return state end -- Retorna o botão e uma função para obter seu estado
 end
 
 local function createSlider(parent, text, min, max, initialValue, layoutOrder, callback)
@@ -310,6 +315,7 @@ local function createSlider(parent, text, min, max, initialValue, layoutOrder, c
 	return container
 end
 
+
 --==================================================================================--
 --||                               ELEMENTOS DA GUI                               ||--
 --==================================================================================--
@@ -324,22 +330,23 @@ discordButton.MouseLeave:Connect(function()
     TweenService:Create(discordButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play()
 end)
 
-local flyButton = createModButton(modsPage, "Fly", 1)
-createSlider(modsPage, "Fly Speed", 1, 100, flySpeed, 2, function(value)
+local espButton, getEspState = createModButton(modsPage, "ESP Players", 1) -- NOVO
+local flyButton, getFlyState = createModButton(modsPage, "Fly", 2)
+createSlider(modsPage, "Fly Speed", 1, 100, flySpeed, 3, function(value)
     flySpeed = value
 end)
 
-local noclipButton = createModButton(modsPage, "Atravessar Parede", 3)
+local noclipButton, getNoclipState = createModButton(modsPage, "Atravessar Parede", 4)
 
-local speedButton = createModButton(modsPage, "Speed", 4)
-createSlider(modsPage, "Walk Speed", originalWalkSpeed, 100, customWalkSpeed, 5, function(value)
+local speedButton, getSpeedState = createModButton(modsPage, "Speed", 5)
+createSlider(modsPage, "Walk Speed", originalWalkSpeed, 100, customWalkSpeed, 6, function(value)
     customWalkSpeed = value
     if isSpeedEnabled then
         humanoid.WalkSpeed = customWalkSpeed
     end
 end)
 
-local backButton = createButton(modsPage, "Voltar", 6)
+local backButton = createButton(modsPage, "Voltar", 7)
 backButton.BackgroundColor3 = Color3.fromRGB(80, 80, 95)
 backButton.Size = UDim2.new(0.85, 0, 0, 35)
 
@@ -399,12 +406,14 @@ discordButton.MouseButton1Click:Connect(function()
     -- setclipboard("SEU_LINK_AQUI") -- Descomente se tiver permissão
 end)
 
--- LÓGICA DOS MODS (CORRIGIDA)
+--==================================================================================--
+--||                                LÓGICA DOS MODS                                 ||--
+--==================================================================================--
 
 -- --- Lógica do Fly ---
 local flyGyro, flyVelocity
 flyButton.Activated:Connect(function()
-    isFlying = not isFlying
+    isFlying = getFlyState()
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
 
@@ -430,7 +439,7 @@ end)
 
 -- --- Lógica do Speed ---
 speedButton.Activated:Connect(function()
-    isSpeedEnabled = not isSpeedEnabled
+    isSpeedEnabled = getSpeedState()
     if isSpeedEnabled then
         humanoid.WalkSpeed = customWalkSpeed
     else
@@ -440,9 +449,8 @@ end)
 
 -- --- Lógica do Noclip ---
 noclipButton.Activated:Connect(function()
-    isNoclipping = not isNoclipping
+    isNoclipping = getNoclipState()
     if isNoclipping then
-        -- Conecta a função ao evento Stepped para desativar colisão continuamente
         noclipConnection = RunService.Stepped:Connect(function()
             for _, part in ipairs(character:GetDescendants()) do
                 if part:IsA("BasePart") then
@@ -451,7 +459,6 @@ noclipButton.Activated:Connect(function()
             end
         end)
     else
-        -- Desconecta a função e reativa a colisão
         if noclipConnection then
             noclipConnection:Disconnect()
             noclipConnection = nil
@@ -464,29 +471,47 @@ noclipButton.Activated:Connect(function()
     end
 end)
 
-
--- --- Loop principal para mods que precisam de atualização constante (Fly) ---
-RunService.RenderStepped:Connect(function()
-    if isFlying and flyVelocity and flyGyro then
-        local direction = Vector3.new()
-        local camera = workspace.CurrentCamera
-		
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = -camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = -camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = camera.CFrame.RightVector end
-		
-		local verticalDirection = 0
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then verticalDirection = 1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then verticalDirection = -1 end
-		
-		local combinedDirection = (direction.Unit * Vector3.new(1, 0, 1)).Unit + Vector3.new(0, verticalDirection, 0)
-
-        flyVelocity.Velocity = combinedDirection * flySpeed
-        flyGyro.CFrame = camera.CFrame
+-- --- NOVO: Lógica do ESP ---
+espButton.Activated:Connect(function()
+    isEspEnabled = getEspState()
+    if not isEspEnabled then
+        -- Se desativado, remove todos os ESPs existentes
+        for player, esp in pairs(espTracker) do
+            if esp then
+                esp:Destroy()
+            end
+        end
+        espTracker = {}
     end
 end)
 
+function createOrUpdateEsp(player)
+    local playerChar = player.Character
+    local head = playerChar and playerChar:FindFirstChild("Head")
+    if not head then return end
+    
+    local espGui = espTracker[player]
+    if not espGui then
+        espGui = Instance.new("BillboardGui")
+        espGui.Name = "PlayerESP"
+        espGui.Adornee = head
+        espGui.Size = UDim2.new(0, 150, 0, 70)
+        espGui.AlwaysOnTop = true
+        espGui.ResetOnSpawn = false
+		espGui.LightInfluence = 0
+		espGui.SizeOffset = Vector2.new(0, 2)
 
--- Inicia todo o processo
-StartLoading()
+        local background = Instance.new("Frame", espGui)
+        background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        background.BackgroundTransparency = 0.4
+        background.Size = UDim2.new(1, 0, 1, 0)
+        Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
+
+        local nameLabel = Instance.new("TextLabel", background)
+        nameLabel.Name = "NameLabel"
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextSize = 16
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Size = UDim2.new(1, -10, 0, 20)
+        nameLabel.Position = UDim2.new(0.5, 0, 0, 
