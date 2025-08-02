@@ -287,30 +287,45 @@ local function CreateTween(instance, propertyTable, duration)
     return TweenService:Create(instance, tweenInfo, propertyTable)
 end
 
-local function AnimateOut(instance, duration, callback)
-    local transparencyTween = CreateTween(instance, {BackgroundTransparency = 1}, duration)
-    if instance:IsA("TextLabel") or instance:IsA("TextButton") then
-        transparencyTween = CreateTween(instance, {TextTransparency = 1}, duration)
-    elseif instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
-        transparencyTween = CreateTween(instance, {ImageTransparency = 1}, duration)
-    end
-    
-    transparencyTween.Completed:Connect(function()
-        instance.Visible = false
-        if callback then callback() end
-    end)
-    transparencyTween:Play()
-end
-
+-- Função para animar a entrada de um elemento
 local function AnimateIn(instance, duration)
     instance.Visible = true
+    local props = {}
     if instance:IsA("TextLabel") or instance:IsA("TextButton") then
-        CreateTween(instance, {TextTransparency = 0}, duration):Play()
+        props.TextTransparency = 0
     elseif instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
-        CreateTween(instance, {ImageTransparency = 0}, duration):Play()
+        props.ImageTransparency = 0
     else
-        CreateTween(instance, {BackgroundTransparency = 0.1}, duration):Play()
+        props.BackgroundTransparency = 0.1
     end
+    CreateTween(instance, props, duration):Play()
+end
+
+-- Função para animar a saída de um elemento e seus filhos
+local function AnimateOutAndDestroy(instance, duration)
+    local tweens = {}
+    for _, v in ipairs(instance:GetDescendants()) do
+        if v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("ImageButton") or v:IsA("TextButton") then
+            table.insert(tweens, CreateTween(v, {BackgroundTransparency = 1}, duration))
+        end
+        if v:IsA("TextLabel") or v:IsA("TextButton") then
+            table.insert(tweens, CreateTween(v, {TextTransparency = 1}, duration))
+        end
+         if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+            table.insert(tweens, CreateTween(v, {ImageTransparency = 1}, duration))
+        end
+        if v:IsA("UIStroke") then
+            table.insert(tweens, CreateTween(v, {Transparency = 1}, duration))
+        end
+    end
+    table.insert(tweens, CreateTween(instance, {BackgroundTransparency = 1}, duration))
+    
+    for _, tween in ipairs(tweens) do
+        tween:Play()
+    end
+    
+    task.wait(duration)
+    instance:Destroy()
 end
 
 -- Simulação de Carregamento
@@ -323,10 +338,23 @@ coroutine.wrap(function()
     CreateTween(ProgressBar, {Size = UDim2.new(1, 0, 1, 0)}, 0.2):Play()
     task.wait(0.5)
     
-    AnimateOut(LoadingScreen, 0.3, function()
+    -- Anima o desaparecimento dos elementos de carregamento
+    local fadeOutDuration = 0.3
+    CreateTween(LoadingTitle, {TextTransparency = 1}, fadeOutDuration):Play()
+    CreateTween(LoadingSubtitle, {TextTransparency = 1}, fadeOutDuration):Play()
+    local bgTween = CreateTween(ProgressBarBG, {BackgroundTransparency = 1}, fadeOutDuration)
+    
+    bgTween.Completed:Connect(function()
+        LoadingScreen.Visible = false
         MainMenu.Visible = true
-        AnimateIn(MainMenu, 0.3)
+        local mainChildren = MainMenu:GetChildren()
+        for _, child in ipairs(mainChildren) do
+            if child:IsA("GuiObject") then
+                AnimateIn(child, 0.3)
+            end
+        end
     end)
+    bgTween:Play()
 end)()
 
 -- Função para criar abas e conteúdo
@@ -378,7 +406,7 @@ end
 -- Função para trocar de categoria
 local activeCategory = nil
 local function SwitchCategory(name)
-    if activeCategory then
+    if activeCategory and Categories[activeCategory] then
         Categories[activeCategory].Button.BackgroundColor3 = Theme.TertiaryColor
         Categories[activeCategory].Button.BackgroundTransparency = 1
         Categories[activeCategory].Button.TextColor3 = Theme.MutedTextColor
@@ -386,16 +414,18 @@ local function SwitchCategory(name)
         Categories[activeCategory].Panel.Visible = false
     end
     
-    Categories[name].Button.BackgroundColor3 = Theme.AccentColor
-    Categories[name].Button.BackgroundTransparency = 0
-    Categories[name].Button.TextColor3 = Theme.TextColor
-    Categories[name].Icon.ImageColor3 = Theme.TextColor
-    Categories[name].Panel.Visible = true
-    activeCategory = name
+    if Categories[name] then
+        Categories[name].Button.BackgroundColor3 = Theme.AccentColor
+        Categories[name].Button.BackgroundTransparency = 0
+        Categories[name].Button.TextColor3 = Theme.TextColor
+        Categories[name].Icon.ImageColor3 = Theme.TextColor
+        Categories[name].Panel.Visible = true
+        activeCategory = name
     
-    -- Atualiza o tamanho do Canvas do ScrollingFrame
-    task.wait()
-    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y)
+        -- Atualiza o tamanho do Canvas do ScrollingFrame
+        task.wait()
+        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y)
+    end
 end
 
 -- Função para criar um Toggle Switch
@@ -503,7 +533,7 @@ Instance.new("TextLabel", creditContent).Text = "Feito por [Seu Nome]" -- Adicio
 
 -- // CONEXÕES DE EVENTOS //
 CloseBtn.MouseButton1Click:Connect(function()
-    AnimateOut(MenuContainer, 0.3, function() ScreenGui:Destroy() end)
+    AnimateOutAndDestroy(MenuContainer, 0.3)
 end)
 
 MinimizeBtn.MouseButton1Click:Connect(function()
@@ -544,55 +574,15 @@ for name, data in pairs(Categories) do
     end)
 end
 
-MinimizeBtn.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    if isMinimized then
-        MainMenu.Visible = false
-        BallIcon.Visible = true
-        CreateTween(MenuContainer, {Size = UDim2.new(0, 64, 0, 64)}, 0.4):Play()
-    else
-        BallIcon.Visible = false
-        MainMenu.Visible = true
-        local targetSize = ModMenuBody.Visible and UDim2.new(0, 500, 0, 350) or UDim2.new(0, 360, 0, 250)
-        CreateTween(MenuContainer, {Size = targetSize}, 0.4):Play()
-    end
-end)
-
-OpenModMenuBtn.MouseButton1Click:Connect(function()
-    HomeBody.Visible = false
-    ModMenuBody.Visible = true
-    BackBtn.Visible = true
-    Title.Position = UDim2.new(0, 30, 0.5, 0) -- Move o título para a esquerda quando o menu de mods é aberto
-    CreateTween(MenuContainer, {Size = UDim2.new(0, 500, 0, 350)}, 0.3):Play()
-    SwitchCategory("Main") -- Abre a primeira categoria por padrão
-end)
-
-BackBtn.MouseButton1Click:Connect(function()
-    ModMenuBody.Visible = false
-    HomeBody.Visible = true
-    BackBtn.Visible = false
-    Title.Position = UDim2.new(0.5, 0, 0.5, 0)
-    CreateTween(MenuContainer, {Size = UDim2.new(0, 360, 0, 250)}, 0.3):Play()
-end)
-
--- Conectar botões de navegação
-for name, data in pairs(Categories) do
-    data.Button.MouseButton1Click:Connect(function()
-        SwitchCategory(name)
-    end)
-end
-
 -- // FUNCIONALIDADE DE ARRASTAR O MENU //
 local dragging = false
 local dragStartPos
 local menuStartPos
 
 local function startDrag(input)
-    if not isMinimized then
-        dragging = true
-        dragStartPos = UserInputService:GetMouseLocation()
-        menuStartPos = MenuContainer.Position
-    end
+    dragging = true
+    dragStartPos = UserInputService:GetMouseLocation()
+    menuStartPos = MenuContainer.Position
 end
 
 local function moveDrag(input)
@@ -609,7 +599,7 @@ local function endDrag()
 end
 
 Header.InputBegan:Connect(function(input, gameProcessedEvent)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessedEvent then
+    if not isMinimized and input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessedEvent then
         startDrag(input)
     end
 end)
@@ -628,12 +618,6 @@ end)
 
 BallIcon.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessedEvent and isMinimized then
-        dragging = true
-        dragStartPos = UserInputService:GetMouseLocation()
-        menuStartPos = MenuContainer.Position
+        startDrag(input)
     end
 end)
-
--- Posiciona o menu no centro da tela e depois move para a posição inicial
-MenuContainer.Position = UDim2.fromScale(0.5, 0.5)
-CreateTween(MenuContainer, {Size = UDim2.new(0, 360, 0, 250), BackgroundTransparency = 0}, 0.5):Play()
